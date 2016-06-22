@@ -1,0 +1,26 @@
+---
+title: Michael Firmin
+---
+<!DOCTYPE html>
+<html>
+    <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>GLSL Raytracer</title>
+
+    <link rel="stylesheet" type="text/css" href="css/raytracer.css">
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.12.0.min.js"></script>
+    <script type="text/javascript" src="static/lib/three.min.js"></script>
+    <script type="text/javascript" src="static/lib/TrackballControls.js"></script>
+    <script src="static/raytracer.js"></script>
+    <script>
+        $(document).ready(function() {
+            var rt = new Raytracer.Raytracer();
+        });
+    </script>
+    </head>
+<body>
+    <div id='main'>
+        <div id='raytracer'></div>
+    </div>
+</body>
+</html>
