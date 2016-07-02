@@ -272,7 +272,7 @@ var Raytracer = (function () {
 
     World.prototype.initializeGL = function() {
         try{
-            this.renderer = new THREE.WebGLRenderer({preserveDrawingBuffer: true});
+            this.renderer = new THREE.WebGLRenderer({preserveDrawingBuffer: true, permultipliedAlpha: false});
             this.renderType = 'webgl';
         }catch(e){
             try{
@@ -284,6 +284,10 @@ var Raytracer = (function () {
             }
         }
         this.error = false;
+
+        if (!this.renderer.getContext().getExtension('OES_texture_float')) {
+            console.warn('BROWSER DOES NOT SUPPORT OES FLOAT TEXTURES');
+        }
 
         this.renderer.setClearColor(0xffffff, 1);
     }
@@ -301,7 +305,7 @@ var Raytracer = (function () {
         this.camera.position.x = -0;
         this.camera.position.y = -5;
         */
-        this.camera.position.z = 5;
+        this.camera.position.z = 20;
 
         $(document).ready(function() {
     //        controls = new THREE.TrackballControls( this.camera, this.renderer.domElement);
@@ -452,6 +456,69 @@ var Raytracer = (function () {
             $('#raytracer').append(this.world.panel);
             this.world.setSize();
 
+
+            var PTR_SIZE = 2;
+            var primitives = new Float32Array(PTR_SIZE*PTR_SIZE*4)
+            primitives[0] = 0;
+            primitives[1] = -1;
+            primitives[2] = -1;
+            primitives[3] = -1;
+
+            primitives[4] = 3;
+            primitives[5] = -1;
+            primitives[6] = -1;
+            primitives[7] = -1;
+
+            var dt_ptr = new THREE.DataTexture(primitives, PTR_SIZE, PTR_SIZE, THREE.RGBAFormat, THREE.FloatType);
+            dt_ptr.flipY = false;
+            dt_ptr.needsUpdate = true;
+
+            var PI_SIZE = 16;
+            var primitiveInfo = new Float32Array(PI_SIZE*PI_SIZE*4);
+            primitiveInfo[0] = 1; // Triangle(0) or sphere(1)
+            primitiveInfo[1] = 0; // flags (0 = normal, 1 = mirror, 2 = glass)
+            primitiveInfo[2] = 0;
+            primitiveInfo[3] = 0;
+            // Color
+            primitiveInfo[4] = 1;
+            primitiveInfo[5] = 0;
+            primitiveInfo[6] = 0;
+            primitiveInfo[7] = 1;
+            // Center (rgb), radius (a)
+            primitiveInfo[8] = 0;
+            primitiveInfo[9] = 0;
+            primitiveInfo[10] = 0;
+            primitiveInfo[11] = 1;
+
+            // TRIANGLE:
+            primitiveInfo[12] = 0; // Triangle(0) or sphere(1)
+            primitiveInfo[13] = 0; // flags (0 = normal, 1 = mirror, 2 = glass)
+            primitiveInfo[14] = 0;
+            primitiveInfo[15] = 0;
+            // Color
+            primitiveInfo[16] = 0;
+            primitiveInfo[17] = 1;
+            primitiveInfo[18] = 0;
+            primitiveInfo[19] = 1;
+
+            // A
+            primitiveInfo[20] = -2;
+            primitiveInfo[21] = -2;
+            primitiveInfo[22] = 3;
+            primitiveInfo[23] = 0;
+
+            // B
+            primitiveInfo[24] = 2;
+            primitiveInfo[25] = -2;
+            primitiveInfo[26] = 3;
+            primitiveInfo[27] = 0;
+
+            // C
+            primitiveInfo[28] = 2;
+            primitiveInfo[29] = 2;
+            primitiveInfo[30] = 3;
+            primitiveInfo[31] = 0;
+
             this.vShader =
                 'varying vec4 vPosition;\n' +
                 'varying vec3 vNormal;\n' +
@@ -463,31 +530,26 @@ var Raytracer = (function () {
                 '}';
 
 
+            var dt = new THREE.DataTexture(primitiveInfo, PI_SIZE, PI_SIZE, THREE.RGBAFormat, THREE.FloatType);
+            dt.flipY = false;
+            dt.needsUpdate = true;
 
-            this.fShader = this.makeFragmentShader();
+            this.fShader = this.makeFragmentShader(PTR_SIZE, PI_SIZE);
 
             this.uniforms = {};
 
             this.uniforms.lightsource = { type: 'v3', value: new THREE.Vector3(0,0,5) };
-            // Stepsize for sampling... 1 seems a good compromise between real-time shading and quality
-            // on my MBP
-            this.uniforms.stepsize = { type: 'f', value: 0.01 };
-            this.uniforms.opacity = { type: 'f', value: 0.5 };
+
             this.uniforms.surface = { type: 'f', value: 0.0 };
 
             this.uniforms.xBounds = { type: 'v2', value: new THREE.Vector2(-1, 1) };
             this.uniforms.yBounds = { type: 'v2', value: new THREE.Vector2(-1, 1) };
             this.uniforms.zBounds = { type: 'v2', value: new THREE.Vector2(-1, 1) };
 
-            this.uniforms.spherePositions = { 'type': 'v3v', value: [ new THREE.Vector3(0,0,0), new THREE.Vector3(1,1,-2), new THREE.Vector3(-1,0,1) ]};
-            this.uniforms.sphereRadii     = { 'type': 'fv1', value: [ .7, .2, 0.5, .8, 1.2, .6 ]};
-            this.uniforms.sphereColors    = { 'type': 'v3v', value: [ new THREE.Vector3(1,0,0), new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,1) ]};
-
-            this.uniforms.trianglePositions = {'type': 'v3v', value: [
-                new THREE.Vector3(-4,-4,-5), new THREE.Vector3(4,-4,-5), new THREE.Vector3(4,4,-5),
-                new THREE.Vector3(-4,-4,-5), new THREE.Vector3(4,4,-5), new THREE.Vector3(-4,4,-5)
-            ]};
-            this.uniforms.triangleColors = {'type': 'v3v', value: [ new THREE.Vector3(0,1,1), new THREE.Vector3(1,1,0)]};
+            // Texture storing pointers in to the primitiveInfo texture (1 pixel = 1 ptr (1 primitive))
+            this.uniforms.primitive_ptrs = {'type': 't', value: dt_ptr};
+            // Texture storing info about each primitive
+            this.uniforms.primitive_info = {'type': 't', value: dt};
 
             this.material = new THREE.ShaderMaterial({
                 uniforms:       this.uniforms,
@@ -506,23 +568,23 @@ var Raytracer = (function () {
             $(window).resize(() => this.world.setSize());
         }
 
-        makeFragmentShader(fn) {
+        makeFragmentShader(ptrsSize, piSize) {
             /* eslint indent: "off", max-len: "off" */
 
             const fShader = [
                 'varying vec4 vPosition;',
                 'uniform vec3 lightsource;',
-                'uniform float stepsize;',
-                'uniform float opacity;',
-                'uniform float surface;',
                 'uniform vec2 xBounds;',
                 'uniform vec2 yBounds;',
                 'uniform vec2 zBounds;',
-                'uniform vec3 spherePositions[3];',
-                'uniform float sphereRadii[3];',
-                'uniform vec3 sphereColors[3];',
-                'uniform vec3 trianglePositions[6];',
-                'uniform vec3 triangleColors[2];',
+                'uniform sampler2D primitive_ptrs;',
+                'uniform sampler2D primitive_info;',
+
+                'const int ptrsSize = ' + ptrsSize + ';',
+                'const int piSize = ' + piSize + ';',
+
+                'const float pixWidthPtrs = 1./float(ptrsSize);',
+                'const float pixWidthInfo = 1./float(piSize);',
 
                 'float intersectSphere(vec3 c, float r, vec3 ro, vec3 rd) {',
                     'float A, B, C;',
@@ -577,13 +639,22 @@ var Raytracer = (function () {
 
                 'void intersect(in vec3 ro, in vec3 rd, inout int pid, inout float min_t) {',
                 // intersect S
-                    'for (int i = 0; i < 5; i++) {',
-                        'float t;',
-                        'if (i == 0) { t = intersectSphere(spherePositions[0], sphereRadii[0], ro, rd); }',
-                        'if (i == 1) { t = intersectSphere(spherePositions[1], sphereRadii[1], ro, rd); }',
-                        'if (i == 2) { t = intersectSphere(spherePositions[2], sphereRadii[2], ro, rd); }',
-                        'if (i == 3) { t = intersectTriangle(trianglePositions[0], trianglePositions[1], trianglePositions[2], ro, rd); }',
-                        'if (i == 4) { t = intersectTriangle(trianglePositions[3], trianglePositions[4], trianglePositions[5], ro, rd); }',
+                    'for (int i = 0; i < ptrsSize; i++) {',
+                        'float t = -1.;',
+
+                        'float pIdx = texture2D(primitive_ptrs, vec2((float(i)+0.5)*pixWidthPtrs, 0.5*pixWidthPtrs)).r;',
+                        'vec4 pInfo = texture2D(primitive_info, vec2((pIdx+0.5)*pixWidthInfo, 0.5*pixWidthInfo));',
+
+                        'if (pInfo.r == 0.) {',
+                            'vec3 a = texture2D(primitive_info, vec2((pIdx+2.+0.5)*pixWidthInfo, 0.5*pixWidthInfo)).xyz;',
+                            'vec3 b = texture2D(primitive_info, vec2((pIdx+3.+0.5)*pixWidthInfo, 0.5*pixWidthInfo)).xyz;',
+                            'vec3 c = texture2D(primitive_info, vec2((pIdx+4.+0.5)*pixWidthInfo, 0.5*pixWidthInfo)).xyz;',
+                            't = intersectTriangle(a, b, c, ro, rd);',
+
+                        '} else if (pInfo.r == 1.) {',
+                            'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+2.+0.5)*pixWidthInfo, 0.5*pixWidthInfo));',
+                            't = intersectSphere(c_and_r.xyz, c_and_r.a, ro, rd);',
+                        '}',
                         'if (t > 0.+1e-3 && t < min_t) {',
                             'pid = i;',
                             'min_t = t;',
@@ -592,13 +663,13 @@ var Raytracer = (function () {
                 '}',
 
                 'void main() {',
+
                     'vec3 ro = cameraPosition;',
                     'vec3 dir = vPosition.xyz - ro;',
                     'float t_entry = length(dir);',
                     'vec3 rd = normalize(dir);',
 
                     'if (t_entry < 0.) { gl_FragColor = vec4(0.,0.,0.,1.); return; }',
-
 
                     'vec3 normal;',
                     'vec3 color;',
@@ -608,41 +679,43 @@ var Raytracer = (function () {
 
                     'intersect(ro, rd, pid, min_t);',
 
-                    'if (pid == 0) {',
-                        'ro = ro + min_t*rd;',
-                        'pid = -1;',
-                        'min_t = 100000.;',
-                        'normal = normalize(ro-spherePositions[0]);',
-                        'rd = rd - 2.*normal * dot(rd, normal);',
-                        'intersect(ro, rd, pid, min_t);',
-                    '}',
+    //                'if (pid == 0) {',
+    //                    'ro = ro + min_t*rd;',
+    //                    'pid = -1;',
+    //                    'min_t = 100000.;',
+    //                    'normal = normalize(ro-spherePositions[0]);',
+    //                    'rd = rd - 2.*normal * dot(rd, normal);',
+    //                    'intersect(ro, rd, pid, min_t);',
+    //                '}',
 
                     'if (pid == -1) {',
                         'gl_FragColor = vec4(.8,.8,.8,1.);',
                     '} else {',
                         'p = ro + min_t*rd;',
 
-                        'vec3 c;',
-                        'if (pid == 0) { color = sphereColors[0]; c = spherePositions[0]; normal = vec3(p-c); }',
-                        'if (pid == 1) { color = sphereColors[1]; c = spherePositions[1]; normal = vec3(p-c); }',
-                        'if (pid == 2) { color = sphereColors[2]; c = spherePositions[2]; normal = vec3(p-c); }',
-                        'if (pid == 3) {',
-                            'color = triangleColors[0];',
-                            'normal = cross(trianglePositions[1] - trianglePositions[0], trianglePositions[2] - trianglePositions[0]);',
+                        'float pIdx = texture2D(primitive_ptrs, vec2((float(pid)+0.5)*pixWidthPtrs, 0.5*pixWidthPtrs)).r;',
+
+                        'float pInfo = texture2D(primitive_info, vec2((pIdx + 0.5)*pixWidthInfo, 0.4*pixWidthInfo)).r;',
+                        'if (pInfo == 0.) {',
+                            'vec3 a = texture2D(primitive_info, vec2((pIdx+2.+0.5)*pixWidthInfo, 0.5*pixWidthInfo)).xyz;',
+                            'vec3 b = texture2D(primitive_info, vec2((pIdx+3.+0.5)*pixWidthInfo, 0.5*pixWidthInfo)).xyz;',
+                            'vec3 c = texture2D(primitive_info, vec2((pIdx+4.+0.5)*pixWidthInfo, 0.5*pixWidthInfo)).xyz;',
+                            'normal = cross(b - a, c - a);',
+                        '} else if(pInfo == 1.) {',
+                            'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+2.+0.5)*pixWidthInfo, 0.5*pixWidthInfo));',
+                            'normal = p - c_and_r.xyz;',
                         '}',
-                        'if (pid == 4) {',
-                            'color = triangleColors[1];',
-                            'normal = cross(trianglePositions[4] - trianglePositions[3], trianglePositions[5] - trianglePositions[3]);',
-                        '}',
+
+                        'vec3 color = texture2D(primitive_info, vec2((pIdx+1.+0.5)*pixWidthInfo, 0.5*pixWidthInfo)).rgb;',
 
 
                         'vec3 N = normalize(normal);',
                         'vec3 L = normalize(lightsource - p);',
                         'vec3 V = -rd;',
-                        'vec3 H = normalize(V+L);',
 
+                        'if (dot(V, N) < 0.) { N = -N; }',
 
-                        'gl_FragColor = vec4(dot(N, L)*color, 1.);',
+                        'gl_FragColor = vec4(clamp(dot(N, L),0.,1.)*color, 1.);',
                     '}',
 
                 '}'].join('\n');

@@ -23,7 +23,7 @@ World.prototype.constructor = World;
 
 World.prototype.initializeGL = function() {
     try{
-        this.renderer = new THREE.WebGLRenderer({preserveDrawingBuffer: true});
+        this.renderer = new THREE.WebGLRenderer({preserveDrawingBuffer: true, permultipliedAlpha: false});
         this.renderType = 'webgl';
     }catch(e){
         try{
@@ -35,6 +35,10 @@ World.prototype.initializeGL = function() {
         }
     }
     this.error = false;
+
+    if (!this.renderer.getContext().getExtension('OES_texture_float')) {
+        console.warn('BROWSER DOES NOT SUPPORT OES FLOAT TEXTURES');
+    }
 
     this.renderer.setClearColor(0xffffff, 1);
 }
@@ -52,7 +56,7 @@ World.prototype.initialize = function() {
     this.camera.position.x = -0;
     this.camera.position.y = -5;
     */
-    this.camera.position.z = 5;
+    this.camera.position.z = 20;
 
     $(document).ready(function() {
 //        controls = new THREE.TrackballControls( this.camera, this.renderer.domElement);
