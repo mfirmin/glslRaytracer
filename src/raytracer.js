@@ -36,9 +36,15 @@ class Raytracer {
         this.uniforms.yBounds = { type: 'v2', value: new THREE.Vector2(-1, 1) };
         this.uniforms.zBounds = { type: 'v2', value: new THREE.Vector2(-1, 1) };
 
-        this.uniforms.spherePositions = { 'type': 'v3v', value: [ new THREE.Vector3(0,0,0), new THREE.Vector3(1,1,1), new THREE.Vector3(-1,0,1), new THREE.Vector3(0, 2, 0), new THREE.Vector3(0,0,-3), new THREE.Vector3(.25,-2,0) ]};
+        this.uniforms.spherePositions = { 'type': 'v3v', value: [ new THREE.Vector3(0,0,0), new THREE.Vector3(1,1,-2), new THREE.Vector3(-1,0,1) ]};
         this.uniforms.sphereRadii     = { 'type': 'fv1', value: [ .7, .2, 0.5, .8, 1.2, .6 ]};
-        this.uniforms.sphereColors    = { 'type': 'v3v', value: [ new THREE.Vector3(1,0,0), new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,1), new THREE.Vector3(1,0,0), new THREE.Vector3(1,1,0), new THREE.Vector3(1,0,1) ]};
+        this.uniforms.sphereColors    = { 'type': 'v3v', value: [ new THREE.Vector3(1,0,0), new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,1) ]};
+
+        this.uniforms.trianglePositions = {'type': 'v3v', value: [
+            new THREE.Vector3(-4,-4,-5), new THREE.Vector3(4,-4,-5), new THREE.Vector3(4,4,-5),
+            new THREE.Vector3(-4,-4,-5), new THREE.Vector3(4,4,-5), new THREE.Vector3(-4,4,-5)
+        ]};
+        this.uniforms.triangleColors = {'type': 'v3v', value: [ new THREE.Vector3(0,1,1), new THREE.Vector3(1,1,0)]};
 
         this.material = new THREE.ShaderMaterial({
             uniforms:       this.uniforms,
@@ -48,7 +54,7 @@ class Raytracer {
             shading:        THREE.SmoothShading,
         });
 
-        this.box = new Box('plot', [4, 4, 4], { material: this.material });
+        this.box = new Box('plot', [10,10,10], { material: this.material });
 
         this.world.addEntity(this.box);
 
@@ -69,9 +75,11 @@ class Raytracer {
             'uniform vec2 xBounds;',
             'uniform vec2 yBounds;',
             'uniform vec2 zBounds;',
-            'uniform vec3 spherePositions[6];',
-            'uniform float sphereRadii[6];',
-            'uniform vec3 sphereColors[6];',
+            'uniform vec3 spherePositions[3];',
+            'uniform float sphereRadii[3];',
+            'uniform vec3 sphereColors[3];',
+            'uniform vec3 trianglePositions[6];',
+            'uniform vec3 triangleColors[2];',
 
             'float intersectSphere(vec3 c, float r, vec3 ro, vec3 rd) {',
                 'float A, B, C;',
@@ -109,17 +117,30 @@ class Raytracer {
 
             '}',
 
+            'float intersectTriangle(vec3 a, vec3 b, vec3 c, vec3 ro, vec3 rd) {',
+                'vec3 N = cross(b - a, c - a);',
+                'float t = dot(a - ro, N) / dot(rd, N);',
+                'vec3 pt = ro + rd*t;',
+
+                'if (t < 0.) { return -1.; }',
+                'else {',
+                    'vec3 v1 = cross(a - pt, b - pt);',
+                    'vec3 v2 = cross(b - pt, c - pt);',
+                    'vec3 v3 = cross(c - pt, a - pt);',
+                    'if (dot(v1, v2) >= 0. && dot(v2,v3) >= 0. && dot(v3,v1) >= 0.) { return t; }',
+                    'else { return -1.; }',
+                '}',
+            '}',
+
             'void intersect(in vec3 ro, in vec3 rd, inout int pid, inout float min_t) {',
-                'for (int i = 0; i < 6; i++) {',
-                    'vec3 c;',
-                    'float r;',
-                    'if (i == 0) { c = spherePositions[0]; r = sphereRadii[0]; }',
-                    'if (i == 1) { c = spherePositions[1]; r = sphereRadii[1]; }',
-                    'if (i == 2) { c = spherePositions[2]; r = sphereRadii[2]; }',
-                    'if (i == 3) { c = spherePositions[3]; r = sphereRadii[3]; }',
-                    'if (i == 4) { c = spherePositions[4]; r = sphereRadii[4]; }',
-                    'if (i == 5) { c = spherePositions[5]; r = sphereRadii[5]; }',
-                    'float t = intersectSphere(c, r, ro, rd);',
+            // intersect S
+                'for (int i = 0; i < 5; i++) {',
+                    'float t;',
+                    'if (i == 0) { t = intersectSphere(spherePositions[0], sphereRadii[0], ro, rd); }',
+                    'if (i == 1) { t = intersectSphere(spherePositions[1], sphereRadii[1], ro, rd); }',
+                    'if (i == 2) { t = intersectSphere(spherePositions[2], sphereRadii[2], ro, rd); }',
+                    'if (i == 3) { t = intersectTriangle(trianglePositions[0], trianglePositions[1], trianglePositions[2], ro, rd); }',
+                    'if (i == 4) { t = intersectTriangle(trianglePositions[3], trianglePositions[4], trianglePositions[5], ro, rd); }',
                     'if (t > 0.+1e-3 && t < min_t) {',
                         'pid = i;',
                         'min_t = t;',
@@ -159,14 +180,18 @@ class Raytracer {
                     'p = ro + min_t*rd;',
 
                     'vec3 c;',
-                    'if (pid == 0) { color = sphereColors[0]; c = spherePositions[0]; }',
-                    'if (pid == 1) { color = sphereColors[1]; c = spherePositions[1]; }',
-                    'if (pid == 2) { color = sphereColors[2]; c = spherePositions[2]; }',
-                    'if (pid == 3) { color = sphereColors[3]; c = spherePositions[3]; }',
-                    'if (pid == 4) { color = sphereColors[4]; c = spherePositions[4]; }',
-                    'if (pid == 5) { color = sphereColors[5]; c = spherePositions[5]; }',
+                    'if (pid == 0) { color = sphereColors[0]; c = spherePositions[0]; normal = vec3(p-c); }',
+                    'if (pid == 1) { color = sphereColors[1]; c = spherePositions[1]; normal = vec3(p-c); }',
+                    'if (pid == 2) { color = sphereColors[2]; c = spherePositions[2]; normal = vec3(p-c); }',
+                    'if (pid == 3) {',
+                        'color = triangleColors[0];',
+                        'normal = cross(trianglePositions[1] - trianglePositions[0], trianglePositions[2] - trianglePositions[0]);',
+                    '}',
+                    'if (pid == 4) {',
+                        'color = triangleColors[1];',
+                        'normal = cross(trianglePositions[4] - trianglePositions[3], trianglePositions[5] - trianglePositions[3]);',
+                    '}',
 
-                    'normal = vec3(p-c);',
 
                     'vec3 N = normalize(normal);',
                     'vec3 L = normalize(lightsource - p);',
