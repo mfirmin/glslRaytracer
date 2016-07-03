@@ -453,96 +453,228 @@ var Raytracer = (function () {
         renderLoop();
     }
 
+    /* global THREE */
+
+    class Primitive {
+        constructor(color = [0.8,0.8,0.8], type = 'NORMAL') {
+            this._color = color;
+            this._type = type;
+        }
+
+        get color() {
+            return this._color;
+        }
+
+        set color(c) {
+            this._color = c;
+        }
+
+        get type() {
+            return this._type;
+        }
+
+        set type(t) {
+            if (['NORMAL', 'MIRROR', 'GLASS'].indexOf(t) === -1) {
+                t = 'NORMAL';
+            }
+            this._type = t;
+        }
+
+    }
+
+    class Sphere$1 extends Primitive{
+        constructor(center, radius, color, type) {
+            super(color, type);
+            this._center = center;
+            this._radius = radius;
+        }
+
+        get center() {
+            return this._center;
+        }
+
+        set center(c) {
+            this._center = c;
+        }
+
+        get radius() {
+            return this._radius;
+        }
+
+        set radius(r) {
+            this._radius = r;
+        }
+
+    }
+
+    class Triangle extends Primitive{
+        constructor(a, b, c, color, type) {
+            super(color, type);
+            this._a = a;
+            this._b = b;
+            this._c = c;
+        }
+
+        get vertices() {
+            return [a,b,c];
+        }
+
+        set vertices(v) {
+            this._a = v[0];
+            this._b = v[1];
+            this._c = v[2];
+        }
+
+        get a() {
+            return this._a;
+        }
+
+        set a(a) {
+            this._a = a;
+        }
+
+        get b() {
+            return this._b;
+        }
+
+        set b(b) {
+            this._b = b;
+        }
+
+        get c() {
+            return this._c;
+        }
+
+        set c(c) {
+            this._c = c;
+        }
+
+    }
+
+    const primitives = {
+        'Primitive': Primitive,
+        'Sphere': Sphere$1,
+        'Triangle': Triangle,
+    }
+
     class Raytracer {
-        constructor() {
+        constructor(light = [0,4,0]) {
+            this._primitives = [];
+            this._lightPosition = light;
+            this._sCount = 0;
+            this._tCount = 0;
+        }
+
+        add(p) {
+            if (p instanceof primitives.Sphere) {
+                this._sCount++;
+            } else if (p instanceof primitives.Triangle) {
+                this._tCount++;
+            } else {
+                console.warn('Unknown primitive type');
+                return;
+            }
+            this._primitives.push(p);
+        }
+
+        go() {
             this.world = new World('raytracer', { element: '#raytracer' });
 
             $('#raytracer').append(this.world.panel);
             this.world.setSize();
 
+            var numPrimitives = this._primitives.length;
 
-            var PTR_SIZE = 2;
-            var primitives = new Float32Array(PTR_SIZE*PTR_SIZE*4)
-            primitives[0] = 0;
-            primitives[1] = -1;
-            primitives[2] = -1;
-            primitives[3] = -1;
+            var primitivePtrs = new Float32Array(numPrimitives*1*4)
 
-            primitives[4] = 3;
-            primitives[5] = -1;
-            primitives[6] = -1;
-            primitives[7] = -1;
+            var pinfoPixels = this._sCount*3 + this._tCount*5;
+            if (pinfoPixels > 1024) {
+                console.error('TOO MANY PRIMITIVES (pInfo > 1024 not supported yet...)');
+            }
+            var primitiveInfo = new Float32Array(pinfoPixels*1*4);
+            var pixCount = 0;
+            for (var i = 0; i < numPrimitives; i++) {
 
-            var dt_ptr = new THREE.DataTexture(primitives, PTR_SIZE, PTR_SIZE, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping,THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
+                primitivePtrs[4*i+0] = pixCount;
+                primitivePtrs[4*i+1] = -1;
+                primitivePtrs[4*i+2] = -1;
+                primitivePtrs[4*i+3] = -1;
+
+                var p = this._primitives[i];
+
+                var type = -1;
+                if (p instanceof primitives.Triangle) {
+                    type = 0;
+                } else if (p instanceof primitives.Sphere) {
+                    type = 1;
+                } else {
+                    console.warn('Unknown primitive. Should never reach here');
+                    continue;
+                }
+
+                primitiveInfo[4*pixCount+0] = type;
+                primitiveInfo[4*pixCount+1] = ['NORMAL', 'MIRROR', 'GLASS'].indexOf(p.type);
+                primitiveInfo[4*pixCount+2] = 0;
+                primitiveInfo[4*pixCount+3] = 0;
+                ++pixCount;
+                primitiveInfo[4*pixCount+0] = p.color[0];
+                primitiveInfo[4*pixCount+1] = p.color[1];
+                primitiveInfo[4*pixCount+2] = p.color[2];
+                primitiveInfo[4*pixCount+3] = 1;
+                ++pixCount;
+
+                if (type === 0) {
+                    // TRIANGLE CASE (A,B,C)
+                    primitiveInfo[4*pixCount+0] = p.a[0];
+                    primitiveInfo[4*pixCount+1] = p.a[1];
+                    primitiveInfo[4*pixCount+2] = p.a[2];
+                    primitiveInfo[4*pixCount+3] = 0;
+                    ++pixCount;
+                    primitiveInfo[4*pixCount+0] = p.b[0];
+                    primitiveInfo[4*pixCount+1] = p.b[1];
+                    primitiveInfo[4*pixCount+2] = p.b[2];
+                    primitiveInfo[4*pixCount+3] = 0;
+                    ++pixCount;
+                    primitiveInfo[4*pixCount+0] = p.c[0];
+                    primitiveInfo[4*pixCount+1] = p.c[1];
+                    primitiveInfo[4*pixCount+2] = p.c[2];
+                    primitiveInfo[4*pixCount+3] = 0;
+                    ++pixCount;
+                } else if (type === 1) {
+                    // SPHERE CASE
+                    primitiveInfo[4*pixCount+0] = p.center[0];
+                    primitiveInfo[4*pixCount+1] = p.center[1];
+                    primitiveInfo[4*pixCount+2] = p.center[2];
+                    primitiveInfo[4*pixCount+3] = p.radius;
+                    ++pixCount;
+                }
+            }
+
+            var dt_ptr = new THREE.DataTexture(primitivePtrs, numPrimitives, 1, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping,THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
             dt_ptr.flipY = false;
             dt_ptr.needsUpdate = true;
 
-            var PI_SIZE = 8;
-            var primitiveInfo = new Float32Array(PI_SIZE*PI_SIZE*4);
-            primitiveInfo[0] = 1; // Triangle(0) or sphere(1)
-            primitiveInfo[1] = 0; // flags (0 = normal, 1 = mirror, 2 = glass)
-            primitiveInfo[2] = 0;
-            primitiveInfo[3] = 0;
-            // Color
-            primitiveInfo[4] = 1;
-            primitiveInfo[5] = 0;
-            primitiveInfo[6] = 0;
-            primitiveInfo[7] = 1;
-            // Center (rgb), radius (a)
-            primitiveInfo[8] = 0;
-            primitiveInfo[9] = 0;
-            primitiveInfo[10] = 0;
-            primitiveInfo[11] = 1;
 
-            // TRIANGLE:
-            primitiveInfo[12] = 0; // Triangle(0) or sphere(1)
-            primitiveInfo[13] = 0; // flags (0 = normal, 1 = mirror, 2 = glass)
-            primitiveInfo[14] = 0;
-            primitiveInfo[15] = 0;
-            // Color
-            primitiveInfo[16] = 0;
-            primitiveInfo[17] = 1;
-            primitiveInfo[18] = 0;
-            primitiveInfo[19] = 1;
-
-            // A
-            primitiveInfo[20] = -2;
-            primitiveInfo[21] = -2;
-            primitiveInfo[22] = 3;
-            primitiveInfo[23] = 1;
-
-            // B
-            primitiveInfo[24] = 2;
-            primitiveInfo[25] = -2;
-            primitiveInfo[26] = 3;
-            primitiveInfo[27] = 0;
-
-            // C
-            primitiveInfo[28] = 2;
-            primitiveInfo[29] = 2;
-            primitiveInfo[30] = 3;
-            primitiveInfo[31] = 0;
-
-            this.vShader =
-                'varying vec4 vPosition;\n' +
-                'varying vec3 vNormal;\n' +
-                'void main() {\n' +
-                    'vPosition = modelMatrix * vec4(position, 1.0);\n' +
-                    'vNormal = normal;\n' +
-                    'gl_Position = ' +
-                        'projectionMatrix * modelViewMatrix * vec4( position, 1.0 );\n' +
-                '}';
-
-
-            var dt = new THREE.DataTexture(primitiveInfo, PI_SIZE, PI_SIZE, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping,THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
+            var dt = new THREE.DataTexture(primitiveInfo, pinfoPixels, 1, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping,THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
             dt.flipY = false;
             dt.needsUpdate = true;
 
-            this.fShader = this.makeFragmentShader(PTR_SIZE, PI_SIZE);
+            this.fShader = this.makeFragmentShader(numPrimitives, pinfoPixels);
+
+            this.vShader = [
+                'varying vec4 vPosition;',
+                'varying vec3 vNormal;',
+                'void main() {',
+                    'vPosition = modelMatrix * vec4(position, 1.0);',
+                    'vNormal = normal;',
+                    'gl_Position = ',
+                        'projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
+                '}'].join('\n');
+
 
             this.uniforms = {};
 
-            this.uniforms.lightsource = { type: 'v3', value: new THREE.Vector3(0,0,5) };
+            this.uniforms.lightsource = { type: 'v3', value: new THREE.Vector3(this._lightPosition[0], this._lightPosition[1], this._lightPosition[2]) };
 
             this.uniforms.surface = { type: 'f', value: 0.0 };
 
@@ -631,7 +763,7 @@ var Raytracer = (function () {
                     'float t = dot(a - ro, N) / dot(rd, N);',
                     'vec3 pt = ro + rd*t;',
 
-                    'if (t < 0.) { return -1.; }',
+                    'if (t < 0. || dot(N, -rd) < 0.) { return -1.; }',
                     'else {',
                         'vec3 v1 = cross(a - pt, b - pt);',
                         'vec3 v2 = cross(b - pt, c - pt);',
@@ -646,17 +778,17 @@ var Raytracer = (function () {
                     'for (int i = 0; i < ptrsSize; i++) {',
                         'float t = -1.;',
 
-                        'float pIdx = texture2D(primitive_ptrs, vec2((float(i)+0.5)*pixWidthPtrs, 0.5*pixWidthPtrs)).r;',
-                        'float pInfo = texture2D(primitive_info, vec2((pIdx+0.5)*pixWidthInfo, 0.5*pixWidthInfo)).r;',
+                        'float pIdx = texture2D(primitive_ptrs, vec2((float(i)+0.5)*pixWidthPtrs, 0.5)).r;',
+                        'float pInfo = texture2D(primitive_info, vec2((pIdx+0.5)*pixWidthInfo, 0.5)).r;',
 
                         'if (pInfo < 0.5) {',
-                            'vec3 a = texture2D(primitive_info, vec2((pIdx+2.+0.5)*pixWidthInfo, 0.5*pixWidthInfo)).xyz;',
-                            'vec3 b = texture2D(primitive_info, vec2((pIdx+3.+0.5)*pixWidthInfo, 0.5*pixWidthInfo)).xyz;',
-                            'vec3 c = texture2D(primitive_info, vec2((pIdx+4.+0.5)*pixWidthInfo, 0.5*pixWidthInfo)).xyz;',
+                            'vec3 a = texture2D(primitive_info, vec2((pIdx+2.+0.5)*pixWidthInfo, 0.5)).xyz;',
+                            'vec3 b = texture2D(primitive_info, vec2((pIdx+3.+0.5)*pixWidthInfo, 0.5)).xyz;',
+                            'vec3 c = texture2D(primitive_info, vec2((pIdx+4.+0.5)*pixWidthInfo, 0.5)).xyz;',
                             't = intersectTriangle(a, b, c, ro, rd);',
 
                         '} else if (pInfo >= 0.5) {',
-                            'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+2.+0.5)*pixWidthInfo, 0.5*pixWidthInfo));',
+                            'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+2.+0.5)*pixWidthInfo, 0.5));',
                             't = intersectSphere(c_and_r.xyz, c_and_r.a, ro, rd);',
                         '}',
                         'if (t > 0.+1e-3 && t < min_t) {',
@@ -697,21 +829,21 @@ var Raytracer = (function () {
                     '} else {',
                         'p = ro + min_t*rd;',
 
-                        'float pIdx = texture2D(primitive_ptrs, vec2((float(pid)+0.5)*pixWidthPtrs, 0.5*pixWidthPtrs)).r;',
+                        'float pIdx = texture2D(primitive_ptrs, vec2((float(pid)+0.5)*pixWidthPtrs, 0.5)).r;',
 
-                        'float pInfo = texture2D(primitive_info, vec2((pIdx + 0.5)*pixWidthInfo, 0.5*pixWidthInfo)).r;',
+                        'float pInfo = texture2D(primitive_info, vec2((pIdx + 0.5)*pixWidthInfo, 0.5)).r;',
 
                         'if (pInfo == 0.0) {',
-                            'vec3 a = texture2D(primitive_info, vec2((pIdx+2.+0.5)*pixWidthInfo, 0.5*pixWidthInfo)).xyz;',
-                            'vec3 b = texture2D(primitive_info, vec2((pIdx+3.+0.5)*pixWidthInfo, 0.5*pixWidthInfo)).xyz;',
-                            'vec3 c = texture2D(primitive_info, vec2((pIdx+4.+0.5)*pixWidthInfo, 0.5*pixWidthInfo)).xyz;',
+                            'vec3 a = texture2D(primitive_info, vec2((pIdx+2.+0.5)*pixWidthInfo, 0.5)).xyz;',
+                            'vec3 b = texture2D(primitive_info, vec2((pIdx+3.+0.5)*pixWidthInfo, 0.5)).xyz;',
+                            'vec3 c = texture2D(primitive_info, vec2((pIdx+4.+0.5)*pixWidthInfo, 0.5)).xyz;',
                             'normal = cross(b - a, c - a);',
                         '} else if(pInfo == 1.0) {',
-                            'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+2.+0.5)*pixWidthInfo, 0.5*pixWidthInfo));',
+                            'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+2.+0.5)*pixWidthInfo, 0.5));',
                             'normal = p - c_and_r.xyz;',
                         '}',
 
-                        'vec3 color = texture2D(primitive_info, vec2((floor(pIdx)+1.5)*pixWidthInfo, 0.5*pixWidthInfo)).rgb;',
+                        'vec3 color = texture2D(primitive_info, vec2((floor(pIdx)+1.5)*pixWidthInfo, 0.5)).rgb;',
 
                         'vec3 N = normalize(normal);',
                         'vec3 L = normalize(lightsource - p);',
@@ -730,7 +862,7 @@ var Raytracer = (function () {
         }
     }
 
-    const RT = { Raytracer };
+    const RT = { Raytracer, primitives };
 
     return RT;
 

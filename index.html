@@ -15,6 +15,54 @@ title: Michael Firmin
     <script>
         $(document).ready(function() {
             var rt = new Raytracer.Raytracer();
+            var s1 = new Raytracer.primitives.Sphere([0,0,0], 1, [1,0,0]);
+
+            var A = [-5,-5,+5];
+            var B = [+5,-5,+5];
+            var C = [+5,-5,-5];
+            var D = [-5,-5,-5];
+
+            var E = [-5,+5,+5];
+            var F = [+5,+5,+5];
+            var G = [+5,+5,-5];
+            var H = [-5,+5,-5];
+
+            var back1 = new Raytracer.primitives.Triangle(D, C, G, [0.6,0.6,0.6]);
+            var back2 = new Raytracer.primitives.Triangle(D, G, H, [0.6,0.6,0.6]);
+
+            var left1 = new Raytracer.primitives.Triangle(A, D, H, [1,0,0]);
+            var left2 = new Raytracer.primitives.Triangle(A, H, E, [1,0,0]);
+
+            var right1 = new Raytracer.primitives.Triangle(C, B, F, [0,1,0]);
+            var right2 = new Raytracer.primitives.Triangle(C, F, G, [0,1,0]);
+
+            var bottom1 = new Raytracer.primitives.Triangle(A, B, C, [0.6,0.6,0.6]);
+            var bottom2 = new Raytracer.primitives.Triangle(A, C, D, [0.6,0.6,0.6]);
+
+            var top1 = new Raytracer.primitives.Triangle(F, E, H, [0.6,0.6,0.6]);
+            var top2 = new Raytracer.primitives.Triangle(F, H, G, [0.6,0.6,0.6]);
+
+            var front1 = new Raytracer.primitives.Triangle(B, A, E, [0.6,0.6,0.6]);
+            var front2 = new Raytracer.primitives.Triangle(B, E, F, [0.6,0.6,0.6]);
+
+            rt.add(s1);
+            rt.add(back1);
+            rt.add(back2);
+            rt.add(left1);
+            rt.add(left2);
+            rt.add(right1);
+            rt.add(right2);
+
+            rt.add(bottom1);
+            rt.add(bottom2);
+
+            rt.add(top1);
+            rt.add(top2);
+
+            rt.add(front1);
+            rt.add(front2);
+
+            rt.go();
         });
     </script>
     </head>
