@@ -3,8 +3,8 @@
 import { default as Primitive } from './primitive.js';
 
 class Triangle extends Primitive{
-    constructor(a, b, c, color, type) {
-        super(color, type);
+    constructor(a, b, c, color, type, diffuse) {
+        super(color, type, diffuse);
         this._a = a;
         this._b = b;
         this._c = c;

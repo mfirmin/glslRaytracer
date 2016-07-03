@@ -1,8 +1,9 @@
 /* global THREE */
 
 class Primitive {
-    constructor(color = [0.8,0.8,0.8], type = 'NORMAL') {
+    constructor(color = [0.8,0.8,0.8], type = 'NORMAL', diffuse) {
         this._color = color;
+        this._diffuse = (diffuse === undefined) ? color : diffuse ;
         this._type = type;
     }
 
@@ -12,6 +13,14 @@ class Primitive {
 
     set color(c) {
         this._color = c;
+    }
+
+    get diffuse() {
+        return this._diffuse;
+    }
+
+    set diffuse(d) {
+        this._diffuse = d;
     }
 
     get type() {

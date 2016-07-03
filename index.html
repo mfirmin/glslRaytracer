@@ -14,8 +14,13 @@ title: Michael Firmin
     <script src="static/raytracer.js"></script>
     <script>
         $(document).ready(function() {
-            var rt = new Raytracer.Raytracer();
-            var s1 = new Raytracer.primitives.Sphere([0,0,0], 1, [1,0,0]);
+
+            var t = 0;
+            var lightPos = [0,3,0];
+
+            var rt = new Raytracer.Raytracer(lightPos, .8, .2);
+            var s1 = new Raytracer.primitives.Sphere([-2,-3.5,-2], 1.5, [1,0,0]);
+            var s2 = new Raytracer.primitives.Sphere([2,-4,2], 1, [0,0,1]);
 
             var A = [-5,-5,+5];
             var B = [+5,-5,+5];
@@ -27,8 +32,8 @@ title: Michael Firmin
             var G = [+5,+5,-5];
             var H = [-5,+5,-5];
 
-            var back1 = new Raytracer.primitives.Triangle(D, C, G, [0.6,0.6,0.6]);
-            var back2 = new Raytracer.primitives.Triangle(D, G, H, [0.6,0.6,0.6]);
+            var back1 = new Raytracer.primitives.Triangle(D, C, G, [1, 1, 0]);
+            var back2 = new Raytracer.primitives.Triangle(D, G, H, [1, 1, 0]);
 
             var left1 = new Raytracer.primitives.Triangle(A, D, H, [1,0,0]);
             var left2 = new Raytracer.primitives.Triangle(A, H, E, [1,0,0]);
@@ -46,6 +51,8 @@ title: Michael Firmin
             var front2 = new Raytracer.primitives.Triangle(B, E, F, [0.6,0.6,0.6]);
 
             rt.add(s1);
+            rt.add(s2);
+
             rt.add(back1);
             rt.add(back2);
             rt.add(left1);
@@ -63,6 +70,12 @@ title: Michael Firmin
             rt.add(front2);
 
             rt.go();
+
+//            setInterval(function() {
+//                lightPos = [3*Math.sin(t),0,3*Math.cos(t)];
+//                rt.lightPosition = lightPos;
+//                t += 0.1;
+//            }, 1000/30);
         });
     </script>
     </head>
