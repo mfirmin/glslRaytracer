@@ -71,6 +71,8 @@ title: Michael Firmin
 
             rt.go();
 
+            window.rt = rt;
+
             setInterval(function() {
                 lightPos = [4*Math.sin(t),0,4*Math.cos(t)];
                 rt.lightPosition = lightPos;

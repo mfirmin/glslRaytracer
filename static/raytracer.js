@@ -602,6 +602,27 @@ var Raytracer = (function () {
                 this.uniforms.lightsource.value.z = pos[2];
             }
         }
+        get lightIntensity() {
+            return this._lightIntensity;
+        }
+
+        set lightIntensity(I) {
+            this._lightIntensity = I;
+            if (this._initialized) {
+                this.uniforms.lightIntensity.value = I;
+            }
+        }
+
+        get ambientIntensity() {
+            return this._ambientIntensity;
+        }
+
+        set ambientIntensity(aI) {
+            this._ambientIntensity = aI;
+            if (this._initialized) {
+                this.uniforms.ambientIntensity.value = aI;
+            }
+        }
 
         go() {
             this.world = new World('raytracer', { element: '#raytracer' });
