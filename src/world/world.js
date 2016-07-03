@@ -23,7 +23,11 @@ World.prototype.constructor = World;
 
 World.prototype.initializeGL = function() {
     try{
-        this.renderer = new THREE.WebGLRenderer({preserveDrawingBuffer: true, permultipliedAlpha: false});
+        this.renderer = new THREE.WebGLRenderer({
+            preserveDrawingBuffer: true,
+            premultipliedAlpha: false,
+            antialias: true,
+        });
         this.renderType = 'webgl';
     }catch(e){
         try{
