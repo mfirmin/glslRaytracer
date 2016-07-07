@@ -19,7 +19,7 @@ title: Michael Firmin
             var lightPos = [0,3,0];
 
             var rt = new Raytracer.Raytracer(lightPos, .8, .2);
-            var s1 = new Raytracer.primitives.Sphere([-2,-3.5,-2], 1.5, [1,0,0]);
+            var s1 = new Raytracer.primitives.Sphere([-2,-3.5,-2], 1.5, [1,0,0], 'MIRROR');
             var s2 = new Raytracer.primitives.Sphere([2,-4,2], 1, [0,0,1]);
 
             var A = [-5,-5,+5];
@@ -72,6 +72,7 @@ title: Michael Firmin
             rt.go();
 
             window.rt = rt;
+            window.s1 = s1;
 
             setInterval(function() {
                 lightPos = [4*Math.sin(t),0,4*Math.cos(t)];
