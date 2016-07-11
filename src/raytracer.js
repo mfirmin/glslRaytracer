@@ -269,15 +269,55 @@ class Raytracer {
                 '}',
             '}',
 
-            'void intersect(inout vec3 ro, inout vec3 rd, inout int pid, inout float min_t, in int except, bool shadows) {',
-            // intersect S
+            'bool isInShadow(in vec3 p, in int pid) {',
+
+                'float pIdx;',
+                'vec4 pInfo;',
+                'vec3 ro = p;',
+                'vec3 rd = lightsource-p;',
+                'float len_rd = length(rd);',
+                'vec3 rdN = normalize(lightsource-p);',
+                'for (int i = 0; i < POINTERS_SIZE; i++) {',
+                    'if (i == pid) { continue; }',
+                    'float t = -1.;',
+
+                    'pIdx = texture2D(primitive_ptrs, vec2((float(i)+0.5)*PIXEL_WIDTH_PTRS, 0.5)).r;',
+                    'pInfo = texture2D(primitive_info, vec2((pIdx+0.5)*PIXEL_WIDTH_INFO, 0.5));',
+
+                    'if (pInfo.r < 0.5) {',
+                        'vec3 a = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                        'vec3 b = texture2D(primitive_info, vec2((pIdx+4.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                        'vec3 c = texture2D(primitive_info, vec2((pIdx+5.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                        't = intersectTriangle(a, b, c, ro, rdN);',
+
+                    '} else if (pInfo.r >= 0.5) {',
+                        'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5));',
+                        't = intersectSphere(c_and_r.xyz, c_and_r.a, ro, rdN);',
+                    '}',
+                    'if (t > 0.+1e-3 && t < len_rd) {',
+                        'return true;',
+                    '}',
+                '}',
+                'return false;',
+            '}',
+
+
+            'void intersect(in vec3 ro, in vec3 rd, inout vec3 total_color) {',
+
+                'vec3 normal;',
+                'vec3 p;',
+                'int pid = -1;',
+                'int except = -1;',
+                'float min_t = 1000000.;',
+                'float pIdx;',
+                'float pIdx_min;',
+                'vec4 pInfo;',
+                'vec4 pInfo_min;',
+
                 'for (int b = 0; b < MAX_BOUNCES; b++) {',
 
-                    'float pIdx;',
-                    'float pIdx_min;',
-                    'vec4 pInfo;',
-                    'vec4 pInfo_min;',
 
+                    // 1. Calculate intersected primitive
                     'for (int i = 0; i < POINTERS_SIZE; i++) {',
                         'float t = -1.;',
 
@@ -302,13 +342,49 @@ class Raytracer {
                         '}',
                     '}',
 
-                    // mirror case
-                    'if (!shadows && pid != -1 && pInfo_min.g == 1.) {',
-                        'vec3 normal;',
+                    // 2. Calculate color from _this_ primitive
+                    'if (pid == -1) {',
+                        'total_color = vec3(1.,1.,1.) + total_color;',
+                        'return;',
+                    '} else {',
+                        'p = ro + min_t*rd;',
+
+                        'if (pInfo_min.r < 0.5) {',
+                            'vec3 a = texture2D(primitive_info, vec2((pIdx_min+3.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'vec3 b = texture2D(primitive_info, vec2((pIdx_min+4.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'vec3 c = texture2D(primitive_info, vec2((pIdx_min+5.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'normal = cross(b - a, c - a);',
+                        '} else if (pInfo_min.r > 0.5) {',
+                            'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx_min+3.5)*PIXEL_WIDTH_INFO, 0.5));',
+                            'normal = p - c_and_r.xyz;',
+                        '}',
+
+                        'vec3 ambientColor = texture2D(primitive_info, vec2((pIdx_min+1.5)*PIXEL_WIDTH_INFO, 0.5)).rgb;',
+                        'vec3 diffuseColor = texture2D(primitive_info, vec2((pIdx_min+2.5)*PIXEL_WIDTH_INFO, 0.5)).rgb;',
+
+                        'vec3 N = normalize(normal);',
+                        'vec3 L = normalize(lightsource - p);',
+                        'vec3 V = -rd;',
+                        'if (dot(V, N) < 0.) { N = -N; }',
+
+                        // Is in shadow...
+                        'vec3 A = ambientIntensity*ambientColor;',
+                        'vec3 S = vec3(0.);',
+                        'if (dot(N, L) < 0. || isInShadow(p, pid)) {',
+                            'total_color = A + total_color;',
+                        '} else {',
+                            'vec3 D = diffuseColor * clamp(dot(N, L), 0., 1.);',
+                            'total_color = lightIntensity*(D+S) + A + total_color;',
+                        '}',
+                    '}',
+
+
+                    // 3. If mirror, calculate the new rd, ro, and keep bouncing.
+                    // otherwise return the current color
+                    'if (pInfo_min.g == 1.) {',
                         'ro = ro + min_t*rd;',
                         'except = pid;',
                         'pid = -1;',
-                        'int pid2 = -1;',
                         'min_t = 100000.;',
                         // sphere case
                         'if (pInfo_min.r > 0.5) {',
@@ -324,17 +400,8 @@ class Raytracer {
                     '} else {',
                         'return;',
                     '}',
-                '}',
-            '}',
 
-            'bool isInShadow(in vec3 p, in int pid) {',
-                'int iPid = -1;',
-                'float min_t = 100000.;',
-                'vec3 rd = lightsource-p;',
-                'vec3 rdN = normalize(lightsource-p);',
-                'intersect(p, rdN, iPid, min_t, pid, true);',
-                'if (iPid != -1 && min_t < length(rd)) { return true; }',
-                'return false;',
+                '}',
             '}',
 
             'void main() {',
@@ -346,62 +413,12 @@ class Raytracer {
 
                 'if (t_entry < 0.) { gl_FragColor = vec4(0.,0.,0.,1.); return; }',
 
-                'vec3 normal;',
-                'vec3 color;',
-                'vec3 p;',
-                'int pid = -1;',
-                'float min_t = 1000000.;',
 
-                'intersect(ro, rd, pid, min_t, -1, false);',
-
-//                'if (pid == 0) {',
-//                    'ro = ro + min_t*rd;',
-//                    'pid = -1;',
-//                    'min_t = 100000.;',
-//                    'normal = normalize(ro-spherePositions[0]);',
-//                    'rd = rd - 2.*normal * dot(rd, normal);',
-//                    'intersect(ro, rd, pid, min_t);',
-//                '}',
-
-                'if (pid == -1) {',
-                    'gl_FragColor = vec4(.8,.8,.8,1.);',
-                '} else {',
-                    'p = ro + min_t*rd;',
-
-                    'float pIdx = texture2D(primitive_ptrs, vec2((float(pid)+0.5)*PIXEL_WIDTH_PTRS, 0.5)).r;',
-
-                    'float pInfo = texture2D(primitive_info, vec2((pIdx + 0.5)*PIXEL_WIDTH_INFO, 0.5)).r;',
-
-                    'if (pInfo == 0.0) {',
-                        'vec3 a = texture2D(primitive_info, vec2((pIdx+3.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
-                        'vec3 b = texture2D(primitive_info, vec2((pIdx+4.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
-                        'vec3 c = texture2D(primitive_info, vec2((pIdx+5.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
-                        'normal = cross(b - a, c - a);',
-                    '} else if(pInfo == 1.0) {',
-                        'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+3.+0.5)*PIXEL_WIDTH_INFO, 0.5));',
-                        'normal = p - c_and_r.xyz;',
-                    '}',
-
-                    'vec3 ambientColor = texture2D(primitive_info, vec2((floor(pIdx)+1.5)*PIXEL_WIDTH_INFO, 0.5)).rgb;',
-                    'vec3 diffuseColor = texture2D(primitive_info, vec2((floor(pIdx)+2.5)*PIXEL_WIDTH_INFO, 0.5)).rgb;',
-
-                    'vec3 N = normalize(normal);',
-                    'vec3 L = normalize(lightsource - p);',
-                    'vec3 V = -rd;',
-                    'if (dot(V, N) < 0.) { N = -N; }',
-
-                    // Is in shadow...
-                    'vec3 A = ambientIntensity*ambientColor;',
-                    'vec3 S = vec3(0.);',
-                    'if (dot(N, L) < 0. || isInShadow(p, pid)) {',
-                        'gl_FragColor = vec4(A, 1.);',
-                    '} else {',
-                        'vec3 D = diffuseColor * clamp(dot(N, L), 0., 1.);',
-                        'gl_FragColor = vec4(lightIntensity*(D+S) + A, 1.);',
-                    '}',
+                'vec3 color = vec3(0.,0.,0.);',
+                'intersect(ro, rd, color);',
+                'gl_FragColor = vec4(color, 1.0);',
 
 
-                '}',
 
             '}'].join('\n');
 
