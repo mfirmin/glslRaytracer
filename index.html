@@ -18,9 +18,9 @@ title: Michael Firmin
             var t = 0;
             var lightPos = [0,3,0];
 
-            var rt = new Raytracer.Raytracer(lightPos, .8, .2);
-            var s1 = new Raytracer.primitives.Sphere([-2,-3.5,-2], 1.5, [.3,.3,.3], 'MIRROR');
-            var s2 = new Raytracer.primitives.Sphere([2,-4,2], 1, [0,0,1]);
+            var rt = new Raytracer.Raytracer(lightPos, 0.6, .4);
+            var s1 = new Raytracer.primitives.Sphere([-2,-3.5,-2], 1.5, [.3,.3,.3], 'MIRROR', undefined, [0.5, 16.]);
+            var s2 = new Raytracer.primitives.Sphere([2,-4,2], 1, [0,.6,.3], undefined, undefined, [.1, 8.]);
 
             var A = [-5,-5,+5];
             var B = [+5,-5,+5];
@@ -44,8 +44,8 @@ title: Michael Firmin
             var bottom1 = new Raytracer.primitives.Triangle(A, B, C, [0.6,0.6,0.6]);
             var bottom2 = new Raytracer.primitives.Triangle(A, C, D, [0.6,0.6,0.6]);
 
-            var top1 = new Raytracer.primitives.Triangle(F, E, H, [0.6,0.6,0.6]);
-            var top2 = new Raytracer.primitives.Triangle(F, H, G, [0.6,0.6,0.6]);
+            var top1 = new Raytracer.primitives.Triangle(F, E, H, [0.6,0.6,0.6], undefined, undefined, [1, 64]);
+            var top2 = new Raytracer.primitives.Triangle(F, H, G, [0.6,0.6,0.6], undefined, undefined, [1, 64]);
 
             var front1 = new Raytracer.primitives.Triangle(B, A, E, [0.6,0.6,0.6]);
             var front2 = new Raytracer.primitives.Triangle(B, E, F, [0.6,0.6,0.6]);

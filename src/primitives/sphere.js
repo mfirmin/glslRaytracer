@@ -3,8 +3,8 @@
 import { default as Primitive } from './primitive.js';
 
 class Sphere extends Primitive{
-    constructor(center, radius, color, type, diffuse) {
-        super(color, type, diffuse);
+    constructor(center, radius, color, type, diffuse, specular) {
+        super(color, type, diffuse, specular);
         this._center = center;
         this._radius = radius;
     }

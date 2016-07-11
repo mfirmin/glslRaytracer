@@ -105,12 +105,12 @@ class Raytracer {
             primitiveInfo[4*pixCount+0] = p.color[0];
             primitiveInfo[4*pixCount+1] = p.color[1];
             primitiveInfo[4*pixCount+2] = p.color[2];
-            primitiveInfo[4*pixCount+3] = 1;
+            primitiveInfo[4*pixCount+3] = p.specular[0];
             ++pixCount;
             primitiveInfo[4*pixCount+0] = p.diffuse[0];
             primitiveInfo[4*pixCount+1] = p.diffuse[1];
             primitiveInfo[4*pixCount+2] = p.diffuse[2];
-            primitiveInfo[4*pixCount+3] = 1; // reserved for specular
+            primitiveInfo[4*pixCount+3] = p.specular[1];
             ++pixCount;
 
             if (type === 0) {
@@ -359,21 +359,27 @@ class Raytracer {
                             'normal = p - c_and_r.xyz;',
                         '}',
 
-                        'vec3 ambientColor = texture2D(primitive_info, vec2((pIdx_min+1.5)*PIXEL_WIDTH_INFO, 0.5)).rgb;',
-                        'vec3 diffuseColor = texture2D(primitive_info, vec2((pIdx_min+2.5)*PIXEL_WIDTH_INFO, 0.5)).rgb;',
+                        'vec4 a_and_sk = texture2D(primitive_info, vec2((pIdx_min+1.5)*PIXEL_WIDTH_INFO, 0.5));',
+                        'vec4 d_and_sn = texture2D(primitive_info, vec2((pIdx_min+2.5)*PIXEL_WIDTH_INFO, 0.5));',
+                        'vec3 ambientColor = a_and_sk.rgb;',
+                        'vec3 diffuseColor = d_and_sn.rgb;',
+                        'float specular_k = a_and_sk.a;',
+                        'float specular_n = d_and_sn.a;',
 
                         'vec3 N = normalize(normal);',
                         'vec3 L = normalize(lightsource - p);',
-                        'vec3 V = -rd;',
+                        'vec3 V = normalize(-rd);',
                         'if (dot(V, N) < 0.) { N = -N; }',
+                        'vec3 H = normalize(V + L);',
+                        'vec3 r = -L + 2.*dot(L, N)*N;',
 
                         // Is in shadow...
                         'vec3 A = ambientIntensity*ambientColor;',
-                        'vec3 S = vec3(0.);',
                         'if (dot(N, L) < 0. || isInShadow(p, pid)) {',
                             'total_color = A + total_color;',
                         '} else {',
-                            'vec3 D = diffuseColor * clamp(dot(N, L), 0., 1.);',
+                            'vec3 D = diffuseColor * max(dot(N, L), 0.);',
+                            'vec3 S = specular_k*vec3(pow(max(1e-5,dot(r,V)), specular_n));',
                             'total_color = lightIntensity*(D+S) + A + total_color;',
                         '}',
                     '}',
