@@ -19,7 +19,7 @@ title: Michael Firmin
             var lightPos = [0,3,0];
 
             var rt = new Raytracer.Raytracer(lightPos, 0.6, .4);
-            var s1 = new Raytracer.primitives.Sphere([-2,-3.5,-2], 1.5, [.3,.3,.3], 'MIRROR', undefined, [0.5, 16.]);
+            var s1 = new Raytracer.primitives.Sphere([-2,-3.5,-2], 1.5, [.2,.2,.2], 'MIRROR', undefined, [0.5, 16.]);
             var s2 = new Raytracer.primitives.Sphere([2,-4,2], 1, [0,.6,.3], undefined, undefined, [.1, 8.]);
 
             var A = [-5,-5,+5];
@@ -32,23 +32,23 @@ title: Michael Firmin
             var G = [+5,+5,-5];
             var H = [-5,+5,-5];
 
-            var back1 = new Raytracer.primitives.Triangle(D, C, G, [1, 1, 0]);
-            var back2 = new Raytracer.primitives.Triangle(D, G, H, [1, 1, 0]);
+            var back1 = new Raytracer.primitives.Triangle(D, C, G, [.7, .6, .1]);
+            var back2 = new Raytracer.primitives.Triangle(D, G, H, [.7, .6, .1]);
 
-            var left1 = new Raytracer.primitives.Triangle(A, D, H, [1,0,0]);
-            var left2 = new Raytracer.primitives.Triangle(A, H, E, [1,0,0]);
+            var left1 = new Raytracer.primitives.Triangle(A, D, H, [.8, .2, .3]);
+            var left2 = new Raytracer.primitives.Triangle(A, H, E, [.8, .2, .3]);
 
-            var right1 = new Raytracer.primitives.Triangle(C, B, F, [0,1,0]);
-            var right2 = new Raytracer.primitives.Triangle(C, F, G, [0,1,0]);
+            var right1 = new Raytracer.primitives.Triangle(C, B, F, [.3, .3, .7]);
+            var right2 = new Raytracer.primitives.Triangle(C, F, G, [.3, .3, .7]);
 
             var bottom1 = new Raytracer.primitives.Triangle(A, B, C, [0.6,0.6,0.6]);
             var bottom2 = new Raytracer.primitives.Triangle(A, C, D, [0.6,0.6,0.6]);
 
-            var top1 = new Raytracer.primitives.Triangle(F, E, H, [0.6,0.6,0.6], undefined, undefined, [1, 64]);
-            var top2 = new Raytracer.primitives.Triangle(F, H, G, [0.6,0.6,0.6], undefined, undefined, [1, 64]);
+            var top1 = new Raytracer.primitives.Triangle(F, E, H, [0.8,0.8,0.8], undefined, undefined, [1, 64]);
+            var top2 = new Raytracer.primitives.Triangle(F, H, G, [0.8,0.8,0.8], undefined, undefined, [1, 64]);
 
-            var front1 = new Raytracer.primitives.Triangle(B, A, E, [0.6,0.6,0.6]);
-            var front2 = new Raytracer.primitives.Triangle(B, E, F, [0.6,0.6,0.6]);
+            var front1 = new Raytracer.primitives.Triangle(B, A, E, [.1, .7, .3]);
+            var front2 = new Raytracer.primitives.Triangle(B, E, F, [.1, .7, .3]);
 
             rt.add(s1);
             rt.add(s2);
