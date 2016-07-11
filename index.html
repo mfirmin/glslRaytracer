@@ -50,6 +50,33 @@ title: Michael Firmin
             var front1 = new Raytracer.primitives.Triangle(B, A, E, [.1, .7, .3]);
             var front2 = new Raytracer.primitives.Triangle(B, E, F, [.1, .7, .3]);
 
+            var c1 = [-3.5,-4.5,+3.0];
+            var c2 = [-3.0,-4.5,+3.0];
+            var c3 = [-3.0,-4.5,+3.5];
+            var c4 = [-3.5,-4.5,+3.5];
+
+            var c5 = [-3.5,-5,+3.0];
+            var c6 = [-3.0,-5,+3.0];
+            var c7 = [-3.0,-5,+3.5];
+            var c8 = [-3.5,-5,+3.5];
+
+            var box_color = [0.7,0.3,0.6];
+
+            var cback1= new Raytracer.primitives.Triangle(c4, c7, c3, box_color, 'NORMAL');
+            var cback2 = new Raytracer.primitives.Triangle(c4, c8, c7, box_color, 'NORMAL');
+
+            var cleft1 = new Raytracer.primitives.Triangle(c1, c8, c4, box_color, 'NORMAL');
+            var cleft2 = new Raytracer.primitives.Triangle(c1, c5, c8, box_color, 'NORMAL');
+
+            var cright1 = new Raytracer.primitives.Triangle(c3, c6, c2, box_color, 'NORMAL');
+            var cright2 = new Raytracer.primitives.Triangle(c3, c7, c6, box_color, 'NORMAL');
+
+            var ctop1 = new Raytracer.primitives.Triangle(c2, c4, c3, box_color, 'NORMAL');
+            var ctop2 = new Raytracer.primitives.Triangle(c1, c4, c2, box_color, 'NORMAL');
+
+            var cfront1 = new Raytracer.primitives.Triangle(c2, c5, c1, box_color, 'NORMAL');
+            var cfront2 = new Raytracer.primitives.Triangle(c2, c6, c5, box_color, 'NORMAL');
+
             rt.add(s1);
             rt.add(s2);
 
@@ -68,6 +95,19 @@ title: Michael Firmin
 
             rt.add(front1);
             rt.add(front2);
+
+            rt.add(cback1);
+            rt.add(cback2);
+            rt.add(cleft1);
+            rt.add(cleft2);
+            rt.add(cright1);
+            rt.add(cright2);
+
+            rt.add(ctop1);
+            rt.add(ctop2);
+
+            rt.add(cfront1);
+            rt.add(cfront2);
 
             rt.go();
 
