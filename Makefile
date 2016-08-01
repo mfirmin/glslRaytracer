@@ -13,5 +13,8 @@ build: static/raytracer.js
 static/raytracer.js:  $(SOURCES)
 	rollup --globals jquery:jQuery -i src/index.js -o static/raytracer.js -f iife --name Raytracer
 
+run: build
+	bundle exec jekyll serve
+
 watch: build
 	watchman-make -p 'src/**/*.js' -t build

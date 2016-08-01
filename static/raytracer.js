@@ -440,17 +440,18 @@ var Raytracer = (function () {
 
     World.prototype.go = function() {
 
-        this.paused = false;
+        var scope = this;
 
-        var renderLoop = function() {
-            this.renderer.render(this.scene, this.camera);
-            if (this.controls !== undefined) {
-                this.controls.update();
+
+        function animate() {
+            scope.renderer.render(scope.scene, scope.camera);
+            if (scope.controls !== undefined) {
+                scope.controls.update();
             }
-            if (!(this.paused)) { setTimeout(renderLoop, 1000/30); }
-        }.bind(this)
+            requestAnimationFrame(animate);
+        }
 
-        renderLoop();
+        requestAnimationFrame(animate);
     }
 
     /* global THREE */
