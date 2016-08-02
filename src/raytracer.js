@@ -98,8 +98,8 @@ class Raytracer {
 
             primitiveInfo[4*pixCount+0] = type;
             primitiveInfo[4*pixCount+1] = ['NORMAL', 'MIRROR', 'GLASS'].indexOf(p.type);
-            primitiveInfo[4*pixCount+2] = 0;
-            primitiveInfo[4*pixCount+3] = 0;
+            primitiveInfo[4*pixCount+2] = p.type === 'GLASS' ? 1.46 : 0; // Index of refraction (if glass type)
+            primitiveInfo[4*pixCount+3] = p.type === 'GLASS' ? 1 : 1; // multiplier on color of bounce
             ++pixCount;
             // Color
             primitiveInfo[4*pixCount+0] = p.color[0];
@@ -210,13 +210,15 @@ class Raytracer {
             'uniform sampler2D primitive_ptrs;',
             'uniform sampler2D primitive_info;',
 
-            'const int MAX_BOUNCES = 3;',
+            'const int MAX_BOUNCES = 4;',
 
             'const int POINTERS_SIZE = ' + ptrsSize + ';',
             'const int PI_SIZE = ' + piSize + ';',
 
             'const float PIXEL_WIDTH_PTRS = 1./float(POINTERS_SIZE);',
             'const float PIXEL_WIDTH_INFO = 1./float(PI_SIZE);',
+
+            'float refractionIndex = 1.;',
 
             'float intersectSphere(vec3 c, float r, vec3 ro, vec3 rd) {',
                 'float A, B, C;',
@@ -294,7 +296,7 @@ class Raytracer {
                         'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5));',
                         't = intersectSphere(c_and_r.xyz, c_and_r.a, ro, rdN);',
                     '}',
-                    'if (t > 0.+1e-3 && t < len_rd) {',
+                    'if (t > 0.+1e-3 && t < len_rd && !(pInfo.g == 2.)) {',
                         'return true;',
                     '}',
                 '}',
@@ -313,6 +315,8 @@ class Raytracer {
                 'float pIdx_min;',
                 'vec4 pInfo;',
                 'vec4 pInfo_min;',
+
+                'int refracted_pid = -1;',
 
                 'for (int b = 0; b < MAX_BOUNCES; b++) {',
 
@@ -380,7 +384,7 @@ class Raytracer {
                         '} else {',
                             'vec3 D = diffuseColor * max(dot(N, L), 0.);',
                             'vec3 S = specular_k*vec3(pow(max(1e-5,dot(r,V)), specular_n));',
-                            'total_color = lightIntensity*(D+S) + A + total_color;',
+                            'total_color = (lightIntensity*(D+S) + A) + total_color;',
                         '}',
                     '}',
 
@@ -403,6 +407,41 @@ class Raytracer {
                             'normal = normalize(cross(b - a, c - a));',
                         '}',
                         'rd = rd - 2.*normal * dot(rd, normal);',
+                    '} else if (pInfo_min.g == 2.) {',
+                        // if glass, calculate refracted rd, ro, and keep bouncing
+                        // store the refraction index
+
+                        'float ri_new;', // refraction index of next primitive (or air if exiting a primitive)
+
+                        'if (refracted_pid == pid) {',
+                            'ri_new = 1.;', // back to air
+                        '} else {',
+                            'ri_new = pInfo_min.b;',
+                        '}',
+
+                        'ro = ro + min_t*rd;',
+                        'refracted_pid = pid;',
+                        'pid = -1;',
+                        'except = -1;',
+                        'min_t = 100000.;',
+
+                        'if (pInfo_min.r > 0.5) {',
+                            'vec3 c = texture2D(primitive_info, vec2((pIdx_min+3.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'normal = normalize(ro-c);',
+                        '} else if (pInfo_min.r < 0.5) {',
+                            'vec3 a = texture2D(primitive_info, vec2((pIdx_min+3.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'vec3 b = texture2D(primitive_info, vec2((pIdx_min+4.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'vec3 c = texture2D(primitive_info, vec2((pIdx_min+5.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'normal = normalize(cross(b - a, c - a));',
+                        '}',
+
+                        'if (dot(normal, rd) >= 0.) { normal = -normal; }',
+
+                        'rd = refract(rd, normal, refractionIndex/ri_new);',
+                        'ro = ro + rd * 0.001;',
+
+                        'refractionIndex = ri_new;',
+
                     '} else {',
                         'return;',
                     '}',

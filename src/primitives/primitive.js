@@ -25,7 +25,6 @@ class Primitive {
     }
 
     get specular() {
-        console.log(this._specular);
         return this._specular;
     }
 
