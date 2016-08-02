@@ -671,7 +671,7 @@ var Raytracer = (function () {
 
                 primitiveInfo[4*pixCount+0] = type;
                 primitiveInfo[4*pixCount+1] = ['NORMAL', 'MIRROR', 'GLASS'].indexOf(p.type);
-                primitiveInfo[4*pixCount+2] = p.type === 'GLASS' ? 1.46 : 0; // Index of refraction (if glass type)
+                primitiveInfo[4*pixCount+2] = p.type === 'GLASS' ? 1.4 : 0; // Index of refraction (if glass type)
                 primitiveInfo[4*pixCount+3] = p.type === 'GLASS' ? 1 : 1; // multiplier on color of bounce
                 ++pixCount;
                 // Color

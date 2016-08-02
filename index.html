@@ -18,9 +18,28 @@ title: Michael Firmin
             var t = 0;
             var lightPos = [0,3,0];
 
-            var rt = new Raytracer.Raytracer(lightPos, 0.6, .4);
-            var s1 = new Raytracer.primitives.Sphere([-0,-0,+0], 2, [0,0,0], 'GLASS', undefined, [1.0, 32.]);
+            var rt = new Raytracer.Raytracer(lightPos, 0.8, .2);
+            var s1 = new Raytracer.primitives.Sphere([-2,-4.5,-2], 0.5, [.6,.2,0], 'NORMAL', undefined, [1.0, 32.]);
             var s2 = new Raytracer.primitives.Sphere([2,-4,2], 1, [.3,.3,.3], 'MIRROR', undefined, [.1, 8.]);
+
+            var s3 = new Raytracer.primitives.Sphere([+2,-4.75,-4], 0.25, [.6,.8,0], 'NORMAL', undefined, [1.0, 32.]);
+
+            var s4 = new Raytracer.primitives.Sphere([-3,-4.8,+3], 0.20, [.4,.3,.2], 'NORMAL', undefined, [0.0, 32.]);
+            var s5 = new Raytracer.primitives.Sphere([-3.4,-4.8,+3], 0.20, [.4,.7,.8], 'NORMAL', undefined, [0.0, 32.]);
+            var s6 = new Raytracer.primitives.Sphere([-3.2,-4.8,+3.35], 0.20, [.2,.2,.8], 'NORMAL', undefined, [0.0, 32.]);
+
+            var s7 = new Raytracer.primitives.Sphere([-3.2,-4.48,+3.15], 0.20, [.7,.7,.5], 'NORMAL', undefined, [0.0, 32.]);
+
+            rt.add(s1);
+            rt.add(s2);
+            rt.add(s3);
+
+            rt.add(s4);
+            rt.add(s5);
+            rt.add(s6);
+
+            rt.add(s7);
+
 
             var A = [-5,-5,+5];
             var B = [+5,-5,+5];
@@ -50,36 +69,6 @@ title: Michael Firmin
             var front1 = new Raytracer.primitives.Triangle(B, A, E, [.1, .7, .3]);
             var front2 = new Raytracer.primitives.Triangle(B, E, F, [.1, .7, .3]);
 
-            var c1 = [-3.5,-4.5,+3.0];
-            var c2 = [-3.0,-4.5,+3.0];
-            var c3 = [-3.0,-4.5,+3.5];
-            var c4 = [-3.5,-4.5,+3.5];
-
-            var c5 = [-3.5,-5,+3.0];
-            var c6 = [-3.0,-5,+3.0];
-            var c7 = [-3.0,-5,+3.5];
-            var c8 = [-3.5,-5,+3.5];
-
-            var box_color = [0.7,0.3,0.6];
-
-            var cback1= new Raytracer.primitives.Triangle(c4, c7, c3, box_color, 'NORMAL');
-            var cback2 = new Raytracer.primitives.Triangle(c4, c8, c7, box_color, 'NORMAL');
-
-            var cleft1 = new Raytracer.primitives.Triangle(c1, c8, c4, box_color, 'NORMAL');
-            var cleft2 = new Raytracer.primitives.Triangle(c1, c5, c8, box_color, 'NORMAL');
-
-            var cright1 = new Raytracer.primitives.Triangle(c3, c6, c2, box_color, 'NORMAL');
-            var cright2 = new Raytracer.primitives.Triangle(c3, c7, c6, box_color, 'NORMAL');
-
-            var ctop1 = new Raytracer.primitives.Triangle(c2, c4, c3, box_color, 'NORMAL');
-            var ctop2 = new Raytracer.primitives.Triangle(c1, c4, c2, box_color, 'NORMAL');
-
-            var cfront1 = new Raytracer.primitives.Triangle(c2, c5, c1, box_color, 'NORMAL');
-            var cfront2 = new Raytracer.primitives.Triangle(c2, c6, c5, box_color, 'NORMAL');
-
-            rt.add(s1);
-            rt.add(s2);
-
             rt.add(back1);
             rt.add(back2);
             rt.add(left1);
@@ -96,6 +85,38 @@ title: Michael Firmin
             rt.add(front1);
             rt.add(front2);
 
+            var c1 = [-1.5,-0,-1.0];
+            var c2 = [+1.0,-0,-1.0];
+            var c3 = [+1.0,-0,+1.5];
+            var c4 = [-1.5,-0,+1.5];
+
+            var c5 = [-1.5,-4.99,-1.0];
+            var c6 = [+1.0,-4.99,-1.0];
+            var c7 = [+1.0,-4.99,+1.5];
+            var c8 = [-1.5,-4.99,+1.5];
+
+//            var box_color = [0.7,0.3,0.6];
+            var box_color = [0,0,0];
+
+            var cback1= new Raytracer.primitives.Triangle(c4, c7, c3, box_color, 'GLASS');
+            var cback2 = new Raytracer.primitives.Triangle(c4, c8, c7, box_color, 'GLASS');
+
+            var cleft1 = new Raytracer.primitives.Triangle(c1, c8, c4, box_color, 'GLASS');
+            var cleft2 = new Raytracer.primitives.Triangle(c1, c5, c8, box_color, 'GLASS');
+
+            var cright1 = new Raytracer.primitives.Triangle(c3, c6, c2, box_color, 'GLASS');
+            var cright2 = new Raytracer.primitives.Triangle(c3, c7, c6, box_color, 'GLASS');
+
+            var ctop1 = new Raytracer.primitives.Triangle(c2, c4, c3, box_color, 'GLASS');
+            var ctop2 = new Raytracer.primitives.Triangle(c1, c4, c2, box_color, 'GLASS');
+
+            var cfront1 = new Raytracer.primitives.Triangle(c2, c5, c1, box_color, 'GLASS');
+            var cfront2 = new Raytracer.primitives.Triangle(c2, c6, c5, box_color, 'GLASS');
+
+            var cbottom1 = new Raytracer.primitives.Triangle(c6, c7, c8, box_color, 'GLASS');
+            var cbottom2 = new Raytracer.primitives.Triangle(c5, c6, c8, box_color, 'GLASS');
+
+
             rt.add(cback1);
             rt.add(cback2);
             rt.add(cleft1);
@@ -108,6 +129,9 @@ title: Michael Firmin
 
             rt.add(cfront1);
             rt.add(cfront2);
+
+            rt.add(cbottom1);
+            rt.add(cbottom2);
 
             rt.go();
 
