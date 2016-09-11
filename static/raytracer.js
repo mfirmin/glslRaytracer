@@ -577,7 +577,7 @@ var Raytracer = (function () {
     }
 
     class Raytracer {
-        constructor(light = [0,4,0], lightIntensity = 1., ambientIntensity = 0.1) {
+        constructor(light = [0, 4, 0], lightIntensity = 1.0, ambientIntensity = 0.1) {
             this._primitives = [];
             this._lightPosition = light;
             this._lightIntensity = lightIntensity;
@@ -594,7 +594,7 @@ var Raytracer = (function () {
             } else if (p instanceof primitives.Triangle) {
                 this._tCount++;
             } else {
-                console.warn('Unknown primitive type');
+                console.warn('Unknown primitive type'); // eslint-disable-line no-console
                 return;
             }
             this._primitives.push(p);
@@ -640,85 +640,84 @@ var Raytracer = (function () {
             $('#raytracer').append(this.world.panel);
             this.world.setSize();
 
-            var numPrimitives = this._primitives.length;
+            const numPrimitives = this._primitives.length;
 
-            var primitivePtrs = new Float32Array(numPrimitives*1*4)
+            const primitivePtrs = new Float32Array(numPrimitives * 1 * 4);
 
-            var pinfoPixels = this._sCount*4 + this._tCount*6;
+            const pinfoPixels = this._sCount * 4 + this._tCount * 6;
             if (pinfoPixels > 1024) {
-                console.error('TOO MANY PRIMITIVES (pInfo > 1024 not supported yet...)');
+                console.error('TOO MANY PRIMITIVES (pInfo > 1024 not supported yet...)'); // eslint-disable-line no-console
             }
-            var primitiveInfo = new Float32Array(pinfoPixels*1*4);
-            var pixCount = 0;
-            for (var i = 0; i < numPrimitives; i++) {
+            const primitiveInfo = new Float32Array(pinfoPixels * 1 * 4);
+            let pixCount = 0;
+            for (let i = 0; i < numPrimitives; i++) {
+                primitivePtrs[4 * i + 0] = pixCount;
+                primitivePtrs[4 * i + 1] = -1;
+                primitivePtrs[4 * i + 2] = -1;
+                primitivePtrs[4 * i + 3] = -1;
 
-                primitivePtrs[4*i+0] = pixCount;
-                primitivePtrs[4*i+1] = -1;
-                primitivePtrs[4*i+2] = -1;
-                primitivePtrs[4*i+3] = -1;
+                const p = this._primitives[i];
 
-                var p = this._primitives[i];
-
-                var type = -1;
+                let type = -1;
                 if (p instanceof primitives.Triangle) {
                     type = 0;
                 } else if (p instanceof primitives.Sphere) {
                     type = 1;
                 } else {
-                    console.warn('Unknown primitive. Should never reach here');
+                    console.warn('Unknown primitive. Should never reach here'); // eslint-disable-line no-console
                     continue;
                 }
 
-                primitiveInfo[4*pixCount+0] = type;
-                primitiveInfo[4*pixCount+1] = ['NORMAL', 'MIRROR', 'GLASS'].indexOf(p.type);
-                primitiveInfo[4*pixCount+2] = p.type === 'GLASS' ? 1.4 : 0; // Index of refraction (if glass type)
-                primitiveInfo[4*pixCount+3] = p.type === 'GLASS' ? 1 : 1; // multiplier on color of bounce
+                primitiveInfo[4 * pixCount + 0] = type;
+                primitiveInfo[4 * pixCount + 1] = ['NORMAL', 'MIRROR', 'GLASS'].indexOf(p.type);
+                primitiveInfo[4 * pixCount + 2] = p.type === 'GLASS' ? 1.4 : 0; // Index of refraction (if glass type)
+                primitiveInfo[4 * pixCount + 3] = p.type === 'GLASS' ? 1 : 1; // multiplier on color of bounce
                 ++pixCount;
                 // Color
-                primitiveInfo[4*pixCount+0] = p.color[0];
-                primitiveInfo[4*pixCount+1] = p.color[1];
-                primitiveInfo[4*pixCount+2] = p.color[2];
-                primitiveInfo[4*pixCount+3] = p.specular[0];
+                primitiveInfo[4 * pixCount + 0] = p.color[0];
+                primitiveInfo[4 * pixCount + 1] = p.color[1];
+                primitiveInfo[4 * pixCount + 2] = p.color[2];
+                primitiveInfo[4 * pixCount + 3] = p.specular[0];
                 ++pixCount;
-                primitiveInfo[4*pixCount+0] = p.diffuse[0];
-                primitiveInfo[4*pixCount+1] = p.diffuse[1];
-                primitiveInfo[4*pixCount+2] = p.diffuse[2];
-                primitiveInfo[4*pixCount+3] = p.specular[1];
+                primitiveInfo[4 * pixCount + 0] = p.diffuse[0];
+                primitiveInfo[4 * pixCount + 1] = p.diffuse[1];
+                primitiveInfo[4 * pixCount + 2] = p.diffuse[2];
+                primitiveInfo[4 * pixCount + 3] = p.specular[1];
                 ++pixCount;
 
                 if (type === 0) {
                     // TRIANGLE CASE (A,B,C)
-                    primitiveInfo[4*pixCount+0] = p.a[0];
-                    primitiveInfo[4*pixCount+1] = p.a[1];
-                    primitiveInfo[4*pixCount+2] = p.a[2];
-                    primitiveInfo[4*pixCount+3] = 0;
+                    primitiveInfo[4 * pixCount + 0] = p.a[0];
+                    primitiveInfo[4 * pixCount + 1] = p.a[1];
+                    primitiveInfo[4 * pixCount + 2] = p.a[2];
+                    primitiveInfo[4 * pixCount + 3] = 0;
                     ++pixCount;
-                    primitiveInfo[4*pixCount+0] = p.b[0];
-                    primitiveInfo[4*pixCount+1] = p.b[1];
-                    primitiveInfo[4*pixCount+2] = p.b[2];
-                    primitiveInfo[4*pixCount+3] = 0;
+                    primitiveInfo[4 * pixCount + 0] = p.b[0];
+                    primitiveInfo[4 * pixCount + 1] = p.b[1];
+                    primitiveInfo[4 * pixCount + 2] = p.b[2];
+                    primitiveInfo[4 * pixCount + 3] = 0;
                     ++pixCount;
-                    primitiveInfo[4*pixCount+0] = p.c[0];
-                    primitiveInfo[4*pixCount+1] = p.c[1];
-                    primitiveInfo[4*pixCount+2] = p.c[2];
-                    primitiveInfo[4*pixCount+3] = 0;
+                    primitiveInfo[4 * pixCount + 0] = p.c[0];
+                    primitiveInfo[4 * pixCount + 1] = p.c[1];
+                    primitiveInfo[4 * pixCount + 2] = p.c[2];
+                    primitiveInfo[4 * pixCount + 3] = 0;
                     ++pixCount;
                 } else if (type === 1) {
                     // SPHERE CASE
-                    primitiveInfo[4*pixCount+0] = p.center[0];
-                    primitiveInfo[4*pixCount+1] = p.center[1];
-                    primitiveInfo[4*pixCount+2] = p.center[2];
-                    primitiveInfo[4*pixCount+3] = p.radius;
+                    primitiveInfo[4 * pixCount + 0] = p.center[0];
+                    primitiveInfo[4 * pixCount + 1] = p.center[1];
+                    primitiveInfo[4 * pixCount + 2] = p.center[2];
+                    primitiveInfo[4 * pixCount + 3] = p.radius;
                     ++pixCount;
                 }
             }
 
-            var dt_ptr = new THREE.DataTexture(primitivePtrs, numPrimitives, 1, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping,THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
-            dt_ptr.flipY = false;
-            dt_ptr.needsUpdate = true;
+            const dtPtr = new THREE.DataTexture(primitivePtrs, numPrimitives, 1, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
+            dtPtr.flipY = false;
+            dtPtr.needsUpdate = true;
 
 
-            var dt = new THREE.DataTexture(primitiveInfo, pinfoPixels, 1, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping,THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
+            const dt = new THREE.DataTexture(primitiveInfo, pinfoPixels, 1, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
             dt.flipY = false;
             dt.needsUpdate = true;
 
@@ -746,9 +745,9 @@ var Raytracer = (function () {
             this.uniforms.zBounds = { type: 'v2', value: new THREE.Vector2(-1, 1) };
 
             // Texture storing pointers in to the primitiveInfo texture (1 pixel = 1 ptr (1 primitive))
-            this.uniforms.primitive_ptrs = {'type': 't', value: dt_ptr};
+            this.uniforms.primitive_ptrs = { type: 't', value: dtPtr };
             // Texture storing info about each primitive
-            this.uniforms.primitive_info = {'type': 't', value: dt};
+            this.uniforms.primitive_info = { type: 't', value: dt };
 
             this.material = new THREE.ShaderMaterial({
                 uniforms:       this.uniforms,
@@ -758,7 +757,7 @@ var Raytracer = (function () {
                 shading:        THREE.SmoothShading,
             });
 
-            this.box = new Box('plot', [10,10,10], { material: this.material });
+            this.box = new Box('plot', [10, 10, 10], { material: this.material });
 
             this.world.addEntity(this.box);
 
@@ -785,8 +784,8 @@ var Raytracer = (function () {
 
                 'const int MAX_BOUNCES = 4;',
 
-                'const int POINTERS_SIZE = ' + ptrsSize + ';',
-                'const int PI_SIZE = ' + piSize + ';',
+                `const int POINTERS_SIZE = ${ptrsSize};`,
+                `const int PI_SIZE = ${piSize};`,
 
                 'const float PIXEL_WIDTH_PTRS = 1./float(POINTERS_SIZE);',
                 'const float PIXEL_WIDTH_INFO = 1./float(PI_SIZE);',
@@ -1035,8 +1034,6 @@ var Raytracer = (function () {
                     'vec3 color = vec3(0.,0.,0.);',
                     'intersect(ro, rd, color);',
                     'gl_FragColor = vec4(color, 1.0);',
-
-
 
                 '}'].join('\n');
 
