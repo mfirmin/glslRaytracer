@@ -2,16 +2,16 @@
 SOURCEDIR = src
 SOURCES = $(shell find $(SOURCEDIR) -name '*.js')
 
-all: static/raytracer.js Makefile
+.PHONY: all clean build run watch
+
+all: build Makefile
 
 clean: 
 	rm static/raytracer.js
 
-build: static/raytracer.js
-	@make static/raytracer.js
-
-static/raytracer.js:  $(SOURCES)
-	rollup --globals jquery:jQuery -i src/index.js -o static/raytracer.js -f iife --name Raytracer
+build: $(SOURCES)
+	cd bin; node build.js
+	mv build/raytracer.js static/raytracer.js
 
 run: build
 	bundle exec jekyll serve

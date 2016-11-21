@@ -1,8 +1,8 @@
-import Box from '../entity/box'
-import Cylinder from '../entity/cylinder'
-import Sphere from '../entity/sphere'
-import Capsule from '../entity/capsule'
-import Plane from '../entity/plane'
+import Box from './entity/box'
+import Cylinder from './entity/cylinder'
+import Sphere from './entity/sphere'
+import Capsule from './entity/capsule'
+import Plane from './entity/plane'
 
 function World(name, opts) {
 
@@ -195,11 +195,11 @@ World.prototype.go = function() {
 
 
     function animate() {
+        requestAnimationFrame(animate);
         scope.renderer.render(scope.scene, scope.camera);
         if (scope.controls !== undefined) {
             scope.controls.update();
         }
-        requestAnimationFrame(animate);
     }
 
     requestAnimationFrame(animate);

@@ -1,6 +1,6 @@
 /* global THREE */
 import World from './world/world';
-import Box from './entity/box';
+import Box from './world/entity/box';
 import primitives from './primitives/index';
 
 class Raytracer {
