@@ -475,7 +475,6 @@ class Primitive {
         }
         this._type = t;
     }
-
 }
 
 /* global THREE */
@@ -502,7 +501,6 @@ class Sphere$2 extends Primitive {
     set radius(r) {
         this._radius = r;
     }
-
 }
 
 /* global THREE */

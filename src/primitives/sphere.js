@@ -24,7 +24,6 @@ class Sphere extends Primitive{
     set radius(r) {
         this._radius = r;
     }
-
 }
 
 export default Sphere;
