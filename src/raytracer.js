@@ -24,9 +24,16 @@ class Raytracer {
             console.warn('Unknown primitive type'); // eslint-disable-line no-console
             return;
         }
+
         this._primitives.push(p);
     }
 
+    /**
+     * @method lightPosition
+     * @memberof Raytracer
+     * @description
+     * Returns the light position
+     */
     get lightPosition() {
         return this._lightPosition;
     }
