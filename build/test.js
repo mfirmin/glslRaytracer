@@ -812,6 +812,95 @@ var primitives = {
 };
 
 /* global THREE */
+
+var powersOfTwo = new Int32Array([1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096]);
+var MAX_SIDE_LENGTH = powersOfTwo[powersOfTwo.length - 1];
+var MAX_TEXTURE_SIZE = MAX_SIDE_LENGTH * MAX_SIDE_LENGTH;
+
+var sizes = [];
+
+for (var h = 0; h < powersOfTwo.length; h++) {
+    var inner = [];
+    for (var w = h; w < powersOfTwo.length; w++) {
+        inner.push(powersOfTwo[w] * powersOfTwo[h]);
+    }
+    sizes.push(inner);
+}
+
+var DataTexture = function () {
+    function DataTexture() {
+        classCallCheck(this, DataTexture);
+
+        this._data = [];
+        this.ptr = 0;
+    }
+
+    createClass(DataTexture, [{
+        key: "computeTextureSize",
+        value: function computeTextureSize(pixelsNeeded) {
+            if (pixelsNeeded < 0 || pixelsNeeded > MAX_TEXTURE_SIZE) {
+                throw new Error("Invalid data size: " + pixelsNeeded);
+            }
+            var min = Number.MAX_VALUE;
+            var minH = 0;
+            var minW = 0;
+            for (var _h = 0; _h < sizes.length; _h++) {
+                var _inner = sizes[_h];
+                for (var _w = 0; _w < _inner.length; _w++) {
+                    var value = _inner[_w];
+                    if (value === pixelsNeeded) {
+                        return {
+                            height: powersOfTwo[_h],
+                            width: powersOfTwo[_w + powersOfTwo.length - _inner.length]
+                        };
+                    } else if (value > pixelsNeeded && value < min) {
+                        min = value;
+                        minH = powersOfTwo[_h];
+                        minW = powersOfTwo[_w + powersOfTwo.length - _inner.length];
+                    }
+                }
+            }
+
+            return { width: minW, height: minH };
+        }
+    }, {
+        key: "constructTexture",
+        value: function constructTexture() {
+            var pixelsNeeded = this._data.length / 4;
+
+            var _computeTextureSize = this.computeTextureSize(pixelsNeeded),
+                width = _computeTextureSize.width,
+                height = _computeTextureSize.height;
+
+            var dt = new THREE.DataTexture(this._data, width, height, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
+
+            dt.flipY = false;
+            dt.needsUpdate = true;
+
+            this.textureWidth = width;
+            this.textureHeight = height;
+            this._datatexture = dt;
+
+            return this._datatexture;
+        }
+    }, {
+        key: "data",
+        set: function set(d) {
+            this._data = d;
+        },
+        get: function get() {
+            return this._data;
+        }
+    }, {
+        key: "texture",
+        get: function get() {
+            return this.constructTexture();
+        }
+    }]);
+    return DataTexture;
+}();
+
+/* global THREE */
 var Raytracer = function () {
     function Raytracer() {
         var light = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [0, 4, 0];
@@ -933,13 +1022,9 @@ var Raytracer = function () {
                 }
             }
 
-            var dtPtr = new THREE.DataTexture(primitivePtrs, numPrimitives, 1, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
-            dtPtr.flipY = false;
-            dtPtr.needsUpdate = true;
+            var dtPtr = new DataTexture(primitivePtrs);
 
-            var dt = new THREE.DataTexture(primitiveInfo, pinfoPixels, 1, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
-            dt.flipY = false;
-            dt.needsUpdate = true;
+            var dt = new DataTexture(primitiveInfo);
 
             this.fShader = this.makeFragmentShader(numPrimitives, pinfoPixels);
 
@@ -956,9 +1041,9 @@ var Raytracer = function () {
             this.uniforms.zBounds = { type: 'v2', value: new THREE.Vector2(-1, 1) };
 
             // Texture storing pointers in to the primitiveInfo texture (1 pixel = 1 ptr (1 primitive))
-            this.uniforms.primitive_ptrs = { type: 't', value: dtPtr };
+            this.uniforms.primitive_ptrs = { type: 't', value: dtPtr.texture };
             // Texture storing info about each primitive
-            this.uniforms.primitive_info = { type: 't', value: dt };
+            this.uniforms.primitive_info = { type: 't', value: dt.texture };
 
             this.material = new THREE.ShaderMaterial({
                 uniforms: this.uniforms,
@@ -1048,82 +1133,6 @@ var Raytracer = function () {
         }
     }]);
     return Raytracer;
-}();
-
-/* global THREE */
-
-var powersOfTwo = new Int32Array([1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096]);
-var MAX_SIDE_LENGTH = powersOfTwo[powersOfTwo.length - 1];
-var MAX_TEXTURE_SIZE = MAX_SIDE_LENGTH * MAX_SIDE_LENGTH;
-
-var sizes = [];
-
-for (var h = 0; h < powersOfTwo.length; h++) {
-    var inner = [];
-    for (var w = h; w < powersOfTwo.length; w++) {
-        inner.push(powersOfTwo[w] * powersOfTwo[h]);
-    }
-    sizes.push(inner);
-}
-
-var DataTexture = function () {
-    function DataTexture() {
-        classCallCheck(this, DataTexture);
-
-        this.data = [];
-        this.ptr = 0;
-    }
-
-    createClass(DataTexture, [{
-        key: "computeTextureSize",
-        value: function computeTextureSize(pixelsNeeded) {
-            if (pixelsNeeded < 0 || pixelsNeeded > MAX_TEXTURE_SIZE) {
-                throw new Error("Invalid data size: " + pixelsNeeded);
-            }
-            var min = Number.MAX_VALUE;
-            var minH = 0;
-            var minW = 0;
-            for (var _h = 0; _h < sizes.length; _h++) {
-                var _inner = sizes[_h];
-                for (var _w = 0; _w < _inner.length; _w++) {
-                    var value = _inner[_w];
-                    if (value === pixelsNeeded) {
-                        return {
-                            height: powersOfTwo[_h],
-                            width: powersOfTwo[_w + powersOfTwo.length - _inner.length]
-                        };
-                    } else if (value > pixelsNeeded && value < min) {
-                        min = value;
-                        minH = powersOfTwo[_h];
-                        minW = powersOfTwo[_w + powersOfTwo.length - _inner.length];
-                    }
-                }
-            }
-
-            return { width: minW, height: minH };
-        }
-    }, {
-        key: "construct",
-        value: function construct() {
-            var pixelsNeeded = this.data / 4;
-
-            var _computeTextureSize = this.computeTextureSize(pixelsNeeded),
-                width = _computeTextureSize.width,
-                height = _computeTextureSize.height;
-
-            var dt = new THREE.DataTexture(this.data, width, height, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
-
-            dt.flipY = false;
-            dt.needsUpdate = true;
-
-            this.textureWidth = width;
-            this.textureHeight = height;
-            this.datatexture = dt;
-
-            return this.datatexture;
-        }
-    }]);
-    return DataTexture;
 }();
 
 var RT = { Raytracer: Raytracer, primitives: primitives, DataTexture: DataTexture };

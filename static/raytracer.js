@@ -812,6 +812,106 @@ var primitives = {
 };
 
 /* global THREE */
+
+var powersOfTwo = new Int32Array([1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096]);
+var MAX_SIDE_LENGTH = powersOfTwo[powersOfTwo.length - 1];
+var MAX_TEXTURE_SIZE = MAX_SIDE_LENGTH * MAX_SIDE_LENGTH;
+
+var sizes = [];
+
+for (var h = 0; h < powersOfTwo.length; h++) {
+    var inner = [];
+    for (var w = h; w < powersOfTwo.length; w++) {
+        inner.push(powersOfTwo[w] * powersOfTwo[h]);
+    }
+    sizes.push(inner);
+}
+
+var DataTexture = function () {
+    function DataTexture() {
+        var data = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
+        classCallCheck(this, DataTexture);
+
+        this._data = data;
+        this.ptr = 0;
+    }
+
+    createClass(DataTexture, [{
+        key: "computeTextureSize",
+        value: function computeTextureSize(pixelsNeeded) {
+            if (pixelsNeeded < 0 || pixelsNeeded > MAX_TEXTURE_SIZE) {
+                throw new Error("Invalid data size: " + pixelsNeeded);
+            }
+            var min = Number.MAX_VALUE;
+            var minH = 0;
+            var minW = 0;
+            for (var _h = 0; _h < sizes.length; _h++) {
+                var _inner = sizes[_h];
+                for (var _w = 0; _w < _inner.length; _w++) {
+                    var value = _inner[_w];
+                    if (value === pixelsNeeded) {
+                        return {
+                            height: powersOfTwo[_h],
+                            width: powersOfTwo[_w + powersOfTwo.length - _inner.length]
+                        };
+                    } else if (value > pixelsNeeded && value < min) {
+                        min = value;
+                        minH = powersOfTwo[_h];
+                        minW = powersOfTwo[_w + powersOfTwo.length - _inner.length];
+                    }
+                }
+            }
+
+            return { width: minW, height: minH };
+        }
+    }, {
+        key: "padData",
+        value: function padData(length) {
+            var newData = new Float32Array(length);
+            for (var i = 0; i < this._data.length; i++) {
+                newData[i] = this._data[i];
+            }
+            this._data = newData;
+        }
+    }, {
+        key: "constructTexture",
+        value: function constructTexture() {
+            var pixelsNeeded = this._data.length / 4;
+
+            var _computeTextureSize = this.computeTextureSize(pixelsNeeded),
+                width = _computeTextureSize.width,
+                height = _computeTextureSize.height;
+
+            this.padData(width * height * 4);
+
+            var dt = new THREE.DataTexture(this._data, width, height, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
+            dt.flipY = false;
+            dt.needsUpdate = true;
+
+            this.textureWidth = width;
+            this.textureHeight = height;
+            this._datatexture = dt;
+
+            return this._datatexture;
+        }
+    }, {
+        key: "data",
+        set: function set(d) {
+            this._data = d;
+        },
+        get: function get() {
+            return this._data;
+        }
+    }, {
+        key: "texture",
+        get: function get() {
+            return this.constructTexture();
+        }
+    }]);
+    return DataTexture;
+}();
+
+/* global THREE */
 var Raytracer = function () {
     function Raytracer() {
         var light = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [0, 4, 0];
@@ -933,17 +1033,9 @@ var Raytracer = function () {
                 }
             }
 
-            var dtPtr = new THREE.DataTexture(primitivePtrs, numPrimitives, 1, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
-            dtPtr.flipY = false;
-            dtPtr.needsUpdate = true;
+            var dtPtr = new DataTexture(primitivePtrs);
 
-            var dt = new THREE.DataTexture(primitiveInfo, pinfoPixels, 1, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
-            dt.flipY = false;
-            dt.needsUpdate = true;
-
-            this.fShader = this.makeFragmentShader(numPrimitives, pinfoPixels);
-
-            this.vShader = ['varying vec4 vPosition;', 'varying vec3 vNormal;', 'void main() {', 'vPosition = modelMatrix * vec4(position, 1.0);', 'vNormal = normal;', 'gl_Position = ', 'projectionMatrix * modelViewMatrix * vec4( position, 1.0 );', '}'].join('\n');
+            var dt = new DataTexture(primitiveInfo);
 
             this.uniforms = {};
 
@@ -956,9 +1048,13 @@ var Raytracer = function () {
             this.uniforms.zBounds = { type: 'v2', value: new THREE.Vector2(-1, 1) };
 
             // Texture storing pointers in to the primitiveInfo texture (1 pixel = 1 ptr (1 primitive))
-            this.uniforms.primitive_ptrs = { type: 't', value: dtPtr };
+            this.uniforms.primitive_ptrs = { type: 't', value: dtPtr.texture };
             // Texture storing info about each primitive
-            this.uniforms.primitive_info = { type: 't', value: dt };
+            this.uniforms.primitive_info = { type: 't', value: dt.texture };
+
+            this.fShader = this.makeFragmentShader(numPrimitives, pinfoPixels, dtPtr.textureWidth, dt.textureWidth);
+
+            this.vShader = ['varying vec4 vPosition;', 'varying vec3 vNormal;', 'void main() {', 'vPosition = modelMatrix * vec4(position, 1.0);', 'vNormal = normal;', 'gl_Position = ', 'projectionMatrix * modelViewMatrix * vec4( position, 1.0 );', '}'].join('\n');
 
             this.material = new THREE.ShaderMaterial({
                 uniforms: this.uniforms,
@@ -982,10 +1078,10 @@ var Raytracer = function () {
         }
     }, {
         key: 'makeFragmentShader',
-        value: function makeFragmentShader(ptrsSize, piSize) {
+        value: function makeFragmentShader(ptrsSize, piSize, ptrsWidth, piWidth) {
             /* eslint indent: "off", max-len: "off" */
 
-            var fShader = ['varying vec4 vPosition;', 'uniform vec3 lightsource;', 'uniform float lightIntensity;', 'uniform float ambientIntensity;', 'uniform vec2 xBounds;', 'uniform vec2 yBounds;', 'uniform vec2 zBounds;', 'uniform sampler2D primitive_ptrs;', 'uniform sampler2D primitive_info;', 'const int MAX_BOUNCES = 4;', 'const int POINTERS_SIZE = ' + ptrsSize + ';', 'const int PI_SIZE = ' + piSize + ';', 'const float PIXEL_WIDTH_PTRS = 1./float(POINTERS_SIZE);', 'const float PIXEL_WIDTH_INFO = 1./float(PI_SIZE);', 'float refractionIndex = 1.;', 'float intersectSphere(vec3 c, float r, vec3 ro, vec3 rd) {', 'float A, B, C;', 'vec3 ro_c = ro - c;', 'C = dot(ro_c, ro_c) - r*r;', 'B = dot(ro_c*2., rd);', 'A = dot(rd, rd);', 'float delta = B*B - 4.*A*C;', 'if (delta < 0.) { return -1.; }', 'else if (delta == 0.) {', 'if (-B/(2.*A) < 0.) {', 'return -1.;', '} else {', 'return -B/(2.*A);', '}', '} else {', 'float sqrtDelta = sqrt(delta);', 'float first  = (-B + sqrtDelta)/(2.*A);', 'float second = (-B - sqrtDelta)/(2.*A);', 'if (first >= 0. && second >= 0.) {', 'if (first <= second) {', 'return first;', '} else {', 'return second;', '}', '} else if (first < 0. && second < 0.) {', 'return -1.;', '} else {', 'if (first < 0.) { return second; }', 'else { return first; }', '}', '}', '}', 'float intersectTriangle(vec3 a, vec3 b, vec3 c, vec3 ro, vec3 rd) {', 'vec3 N = cross(b - a, c - a);', 'float t = dot(a - ro, N) / dot(rd, N);', 'vec3 pt = ro + rd*t;', 'if (t < 0. || dot(N, -rd) < 0.) { return -1.; }', 'else {', 'vec3 v1 = cross(a - pt, b - pt);', 'vec3 v2 = cross(b - pt, c - pt);', 'vec3 v3 = cross(c - pt, a - pt);', 'if (dot(v1, v2) >= 0. && dot(v2,v3) >= 0. && dot(v3,v1) >= 0.) { return t; }', 'else { return -1.; }', '}', '}', 'bool isInShadow(in vec3 p, in int pid) {', 'float pIdx;', 'vec4 pInfo;', 'vec3 ro = p;', 'vec3 rd = lightsource-p;', 'float len_rd = length(rd);', 'vec3 rdN = normalize(lightsource-p);', 'for (int i = 0; i < POINTERS_SIZE; i++) {', 'if (i == pid) { continue; }', 'float t = -1.;', 'pIdx = texture2D(primitive_ptrs, vec2((float(i)+0.5)*PIXEL_WIDTH_PTRS, 0.5)).r;', 'pInfo = texture2D(primitive_info, vec2((pIdx+0.5)*PIXEL_WIDTH_INFO, 0.5));', 'if (pInfo.r < 0.5) {', 'vec3 a = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;', 'vec3 b = texture2D(primitive_info, vec2((pIdx+4.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;', 'vec3 c = texture2D(primitive_info, vec2((pIdx+5.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;', 't = intersectTriangle(a, b, c, ro, rdN);', '} else if (pInfo.r >= 0.5) {', 'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5));', 't = intersectSphere(c_and_r.xyz, c_and_r.a, ro, rdN);', '}', 'if (t > 0.+1e-3 && t < len_rd && !(pInfo.g == 2.)) {', 'return true;', '}', '}', 'return false;', '}', 'void intersect(in vec3 ro, in vec3 rd, inout vec3 total_color) {', 'vec3 normal;', 'vec3 p;', 'int pid = -1;', 'int except = -1;', 'float min_t = 1000000.;', 'float pIdx;', 'float pIdx_min;', 'vec4 pInfo;', 'vec4 pInfo_min;', 'int refracted_pid = -1;', 'for (int b = 0; b < MAX_BOUNCES; b++) {',
+            var fShader = ['varying vec4 vPosition;', 'uniform vec3 lightsource;', 'uniform float lightIntensity;', 'uniform float ambientIntensity;', 'uniform vec2 xBounds;', 'uniform vec2 yBounds;', 'uniform vec2 zBounds;', 'uniform sampler2D primitive_ptrs;', 'uniform sampler2D primitive_info;', 'const int MAX_BOUNCES = 4;', 'const int POINTERS_SIZE = ' + ptrsSize + ';', 'const int PI_SIZE = ' + piSize + ';', 'const int POINTERS_WIDTH = ' + ptrsWidth + ';', 'const int PI_WIDTH = ' + piWidth + ';', 'const float PIXEL_WIDTH_PTRS = 1./float(POINTERS_WIDTH);', 'const float PIXEL_WIDTH_INFO = 1./float(PI_WIDTH);', 'float refractionIndex = 1.;', 'float intersectSphere(vec3 c, float r, vec3 ro, vec3 rd) {', 'float A, B, C;', 'vec3 ro_c = ro - c;', 'C = dot(ro_c, ro_c) - r*r;', 'B = dot(ro_c*2., rd);', 'A = dot(rd, rd);', 'float delta = B*B - 4.*A*C;', 'if (delta < 0.) { return -1.; }', 'else if (delta == 0.) {', 'if (-B/(2.*A) < 0.) {', 'return -1.;', '} else {', 'return -B/(2.*A);', '}', '} else {', 'float sqrtDelta = sqrt(delta);', 'float first  = (-B + sqrtDelta)/(2.*A);', 'float second = (-B - sqrtDelta)/(2.*A);', 'if (first >= 0. && second >= 0.) {', 'if (first <= second) {', 'return first;', '} else {', 'return second;', '}', '} else if (first < 0. && second < 0.) {', 'return -1.;', '} else {', 'if (first < 0.) { return second; }', 'else { return first; }', '}', '}', '}', 'float intersectTriangle(vec3 a, vec3 b, vec3 c, vec3 ro, vec3 rd) {', 'vec3 N = cross(b - a, c - a);', 'float t = dot(a - ro, N) / dot(rd, N);', 'vec3 pt = ro + rd*t;', 'if (t < 0. || dot(N, -rd) < 0.) { return -1.; }', 'else {', 'vec3 v1 = cross(a - pt, b - pt);', 'vec3 v2 = cross(b - pt, c - pt);', 'vec3 v3 = cross(c - pt, a - pt);', 'if (dot(v1, v2) >= 0. && dot(v2,v3) >= 0. && dot(v3,v1) >= 0.) { return t; }', 'else { return -1.; }', '}', '}', 'bool isInShadow(in vec3 p, in int pid) {', 'float pIdx;', 'vec4 pInfo;', 'vec3 ro = p;', 'vec3 rd = lightsource-p;', 'float len_rd = length(rd);', 'vec3 rdN = normalize(lightsource-p);', 'for (int i = 0; i < POINTERS_SIZE; i++) {', 'if (i == pid) { continue; }', 'float t = -1.;', 'pIdx = texture2D(primitive_ptrs, vec2((float(i)+0.5)*PIXEL_WIDTH_PTRS, 0.5)).r;', 'pInfo = texture2D(primitive_info, vec2((pIdx+0.5)*PIXEL_WIDTH_INFO, 0.5));', 'if (pInfo.r < 0.5) {', 'vec3 a = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;', 'vec3 b = texture2D(primitive_info, vec2((pIdx+4.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;', 'vec3 c = texture2D(primitive_info, vec2((pIdx+5.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;', 't = intersectTriangle(a, b, c, ro, rdN);', '} else if (pInfo.r >= 0.5) {', 'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5));', 't = intersectSphere(c_and_r.xyz, c_and_r.a, ro, rdN);', '}', 'if (t > 0.+1e-3 && t < len_rd && !(pInfo.g == 2.)) {', 'return true;', '}', '}', 'return false;', '}', 'void intersect(in vec3 ro, in vec3 rd, inout vec3 total_color) {', 'vec3 normal;', 'vec3 p;', 'int pid = -1;', 'int except = -1;', 'float min_t = 1000000.;', 'float pIdx;', 'float pIdx_min;', 'vec4 pInfo;', 'vec4 pInfo_min;', 'int refracted_pid = -1;', 'for (int b = 0; b < MAX_BOUNCES; b++) {',
 
             // 1. Calculate intersected primitive
             'for (int i = 0; i < POINTERS_SIZE; i++) {', 'float t = -1.;', 'pIdx = texture2D(primitive_ptrs, vec2((float(i)+0.5)*PIXEL_WIDTH_PTRS, 0.5)).r;', 'pInfo = texture2D(primitive_info, vec2((pIdx+0.5)*PIXEL_WIDTH_INFO, 0.5));', 'if (pInfo.r < 0.5) {', 'vec3 a = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;', 'vec3 b = texture2D(primitive_info, vec2((pIdx+4.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;', 'vec3 c = texture2D(primitive_info, vec2((pIdx+5.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;', 't = intersectTriangle(a, b, c, ro, rd);', '} else if (pInfo.r >= 0.5) {', 'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5));', 't = intersectSphere(c_and_r.xyz, c_and_r.a, ro, rd);', '}', 'if (t > 0.+1e-3 && t < min_t && i != except) {', 'pid = i;', 'min_t = t;', 'pIdx_min = pIdx;', 'pInfo_min = pInfo;', '}', '}',

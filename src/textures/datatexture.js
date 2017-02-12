@@ -16,9 +16,21 @@ for (let h = 0; h < powersOfTwo.length; h++) {
 
 class DataTexture {
 
-    constructor() {
-        this.data = [];
+    constructor(data = []) {
+        this._data = data;
         this.ptr = 0;
+    }
+
+    set data(d) {
+        this._data = d;
+    }
+
+    get data() {
+        return this._data;
+    }
+
+    get texture() {
+        return this.constructTexture();
     }
 
     computeTextureSize(pixelsNeeded) {
@@ -48,13 +60,23 @@ class DataTexture {
         return { width: minW, height: minH };
     }
 
-    construct() {
-        const pixelsNeeded = this.data / 4;
+    padData(length) {
+        const newData = new Float32Array(length);
+        for (let i = 0; i < this._data.length; i++) {
+            newData[i] = this._data[i];
+        }
+        this._data = newData;
+    }
+
+    constructTexture() {
+        const pixelsNeeded = this._data.length / 4;
 
         const { width, height } = this.computeTextureSize(pixelsNeeded);
 
+        this.padData(width * height * 4);
+
         const dt = new THREE.DataTexture(
-            this.data,
+            this._data,
             width,
             height,
             THREE.RGBAFormat,
@@ -65,16 +87,15 @@ class DataTexture {
             THREE.NearestFilter,
             THREE.NearestFilter
         );
-
         dt.flipY = false;
         dt.needsUpdate = true;
 
 
         this.textureWidth = width;
         this.textureHeight = height;
-        this.datatexture = dt;
+        this._datatexture = dt;
 
-        return this.datatexture;
+        return this._datatexture;
     }
 }
 

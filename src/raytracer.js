@@ -2,6 +2,7 @@
 import World from './world/world';
 import Box from './world/entity/box';
 import primitives from './primitives/index';
+import DataTexture from './textures/datatexture';
 
 class Raytracer {
     constructor(light = [0, 4, 0], lightIntensity = 1.0, ambientIntensity = 0.1) {
@@ -146,27 +147,9 @@ class Raytracer {
             }
         }
 
-        const dtPtr = new THREE.DataTexture(primitivePtrs, numPrimitives, 1, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
-        dtPtr.flipY = false;
-        dtPtr.needsUpdate = true;
+        const dtPtr = new DataTexture(primitivePtrs);
 
-
-        const dt = new THREE.DataTexture(primitiveInfo, pinfoPixels, 1, THREE.RGBAFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
-        dt.flipY = false;
-        dt.needsUpdate = true;
-
-        this.fShader = this.makeFragmentShader(numPrimitives, pinfoPixels);
-
-        this.vShader = [
-            'varying vec4 vPosition;',
-            'varying vec3 vNormal;',
-            'void main() {',
-                'vPosition = modelMatrix * vec4(position, 1.0);',
-                'vNormal = normal;',
-                'gl_Position = ',
-                    'projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
-            '}'].join('\n');
-
+        const dt = new DataTexture(primitiveInfo);
 
         this.uniforms = {};
 
@@ -179,9 +162,21 @@ class Raytracer {
         this.uniforms.zBounds = { type: 'v2', value: new THREE.Vector2(-1, 1) };
 
         // Texture storing pointers in to the primitiveInfo texture (1 pixel = 1 ptr (1 primitive))
-        this.uniforms.primitive_ptrs = { type: 't', value: dtPtr };
+        this.uniforms.primitive_ptrs = { type: 't', value: dtPtr.texture };
         // Texture storing info about each primitive
-        this.uniforms.primitive_info = { type: 't', value: dt };
+        this.uniforms.primitive_info = { type: 't', value: dt.texture };
+
+        this.fShader = this.makeFragmentShader(numPrimitives, pinfoPixels, dtPtr.textureWidth, dt.textureWidth);
+
+        this.vShader = [
+            'varying vec4 vPosition;',
+            'varying vec3 vNormal;',
+            'void main() {',
+                'vPosition = modelMatrix * vec4(position, 1.0);',
+                'vNormal = normal;',
+                'gl_Position = ',
+                    'projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
+            '}'].join('\n');
 
         this.material = new THREE.ShaderMaterial({
             uniforms:       this.uniforms,
@@ -202,7 +197,7 @@ class Raytracer {
         this._initialized = true;
     }
 
-    makeFragmentShader(ptrsSize, piSize) {
+    makeFragmentShader(ptrsSize, piSize, ptrsWidth, piWidth) {
         /* eslint indent: "off", max-len: "off" */
 
         const fShader = [
@@ -221,8 +216,11 @@ class Raytracer {
             `const int POINTERS_SIZE = ${ptrsSize};`,
             `const int PI_SIZE = ${piSize};`,
 
-            'const float PIXEL_WIDTH_PTRS = 1./float(POINTERS_SIZE);',
-            'const float PIXEL_WIDTH_INFO = 1./float(PI_SIZE);',
+            `const int POINTERS_WIDTH = ${ptrsWidth};`,
+            `const int PI_WIDTH = ${piWidth};`,
+
+            'const float PIXEL_WIDTH_PTRS = 1./float(POINTERS_WIDTH);',
+            'const float PIXEL_WIDTH_INFO = 1./float(PI_WIDTH);',
 
             'float refractionIndex = 1.;',
 
