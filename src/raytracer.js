@@ -3,6 +3,7 @@ import World from './world/world';
 import Box from './world/entity/box';
 import primitives from './primitives/index';
 import DataTexture from './textures/datatexture';
+import glsl from './glsl/index';
 
 class Raytracer {
     constructor(light = [0, 4, 0], lightIntensity = 1.0, ambientIntensity = 0.1) {
@@ -224,59 +225,16 @@ class Raytracer {
 
             'float refractionIndex = 1.;',
 
-            'float intersectSphere(vec3 c, float r, vec3 ro, vec3 rd) {',
-                'float A, B, C;',
-                'vec3 ro_c = ro - c;',
-                'C = dot(ro_c, ro_c) - r*r;',
-                'B = dot(ro_c*2., rd);',
-                'A = dot(rd, rd);',
-                'float delta = B*B - 4.*A*C;',
+            glsl.structs.ray,
+            glsl.structs.sphere,
+            glsl.structs.triangle,
+            glsl.structs.box,
 
-                'if (delta < 0.) { return -1.; }',
-                'else if (delta == 0.) {',
-                    'if (-B/(2.*A) < 0.) {',
-                        'return -1.;',
-                    '} else {',
-                        'return -B/(2.*A);',
-                    '}',
-                '} else {',
-                    'float sqrtDelta = sqrt(delta);',
-                    'float first  = (-B + sqrtDelta)/(2.*A);',
-                    'float second = (-B - sqrtDelta)/(2.*A);',
-
-                    'if (first >= 0. && second >= 0.) {',
-                        'if (first <= second) {',
-                            'return first;',
-                        '} else {',
-                            'return second;',
-                        '}',
-                    '} else if (first < 0. && second < 0.) {',
-                        'return -1.;',
-                    '} else {',
-                        'if (first < 0.) { return second; }',
-                        'else { return first; }',
-                    '}',
-                '}',
-
-            '}',
-
-            'float intersectTriangle(vec3 a, vec3 b, vec3 c, vec3 ro, vec3 rd) {',
-                'vec3 N = cross(b - a, c - a);',
-                'float t = dot(a - ro, N) / dot(rd, N);',
-                'vec3 pt = ro + rd*t;',
-
-                'if (t < 0. || dot(N, -rd) < 0.) { return -1.; }',
-                'else {',
-                    'vec3 v1 = cross(a - pt, b - pt);',
-                    'vec3 v2 = cross(b - pt, c - pt);',
-                    'vec3 v3 = cross(c - pt, a - pt);',
-                    'if (dot(v1, v2) >= 0. && dot(v2,v3) >= 0. && dot(v3,v1) >= 0.) { return t; }',
-                    'else { return -1.; }',
-                '}',
-            '}',
+            glsl.intersectFunctions.intersectSphere,
+            glsl.intersectFunctions.intersectTriangle,
+            glsl.intersectFunctions.intersectBox,
 
             'bool isInShadow(in vec3 p, in int pid) {',
-
                 'float pIdx;',
                 'vec4 pInfo;',
                 'vec3 ro = p;',
@@ -294,11 +252,11 @@ class Raytracer {
                         'vec3 a = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                         'vec3 b = texture2D(primitive_info, vec2((pIdx+4.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                         'vec3 c = texture2D(primitive_info, vec2((pIdx+5.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
-                        't = intersectTriangle(a, b, c, ro, rdN);',
+                        't = intersectTriangle(Triangle(a, b, c), Ray(ro, rdN));',
 
                     '} else if (pInfo.r >= 0.5) {',
                         'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5));',
-                        't = intersectSphere(c_and_r.xyz, c_and_r.a, ro, rdN);',
+                        't = intersectSphere(Sphere(c_and_r.xyz, c_and_r.a), Ray(ro, rdN));',
                     '}',
                     'if (t > 0.+1e-3 && t < len_rd && !(pInfo.g == 2.)) {',
                         'return true;',
@@ -308,7 +266,8 @@ class Raytracer {
             '}',
 
 
-            'void intersect(in vec3 ro, in vec3 rd, inout vec3 total_color) {',
+            'void intersect(in Ray initialRay, inout vec3 total_color) {',
+                'Ray currentRay = Ray(initialRay.origin, initialRay.direction);',
 
                 'vec3 normal;',
                 'vec3 p;',
@@ -336,11 +295,11 @@ class Raytracer {
                             'vec3 a = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                             'vec3 b = texture2D(primitive_info, vec2((pIdx+4.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                             'vec3 c = texture2D(primitive_info, vec2((pIdx+5.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
-                            't = intersectTriangle(a, b, c, ro, rd);',
+                            't = intersectTriangle(Triangle(a, b, c), currentRay);',
 
                         '} else if (pInfo.r >= 0.5) {',
                             'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5));',
-                            't = intersectSphere(c_and_r.xyz, c_and_r.a, ro, rd);',
+                            't = intersectSphere(Sphere(c_and_r.xyz, c_and_r.a), currentRay);',
                         '}',
                         'if (t > 0.+1e-3 && t < min_t && i != except) {',
                             'pid = i;',
@@ -355,7 +314,7 @@ class Raytracer {
                         'total_color = vec3(1.,1.,1.) + total_color;',
                         'return;',
                     '} else {',
-                        'p = ro + min_t*rd;',
+                        'p = currentRay.origin + min_t*currentRay.direction;',
 
                         'if (pInfo_min.r < 0.5) {',
                             'vec3 a = texture2D(primitive_info, vec2((pIdx_min+3.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
@@ -376,7 +335,7 @@ class Raytracer {
 
                         'vec3 N = normalize(normal);',
                         'vec3 L = normalize(lightsource - p);',
-                        'vec3 V = normalize(-rd);',
+                        'vec3 V = normalize(-currentRay.direction);',
                         'if (dot(V, N) < 0.) { N = -N; }',
                         'vec3 H = normalize(V + L);',
                         'vec3 r = -L + 2.*dot(L, N)*N;',
@@ -396,21 +355,21 @@ class Raytracer {
                     // 3. If mirror, calculate the new rd, ro, and keep bouncing.
                     // otherwise return the current color
                     'if (pInfo_min.g == 1.) {',
-                        'ro = ro + min_t*rd;',
+                        'currentRay.origin += min_t * currentRay.direction;',
                         'except = pid;',
                         'pid = -1;',
                         'min_t = 100000.;',
                         // sphere case
                         'if (pInfo_min.r > 0.5) {',
                             'vec3 c = texture2D(primitive_info, vec2((pIdx_min+3.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
-                            'normal = normalize(ro-c);',
+                            'normal = normalize(currentRay.origin-c);',
                         '} else if (pInfo_min.r < 0.5) {',
                             'vec3 a = texture2D(primitive_info, vec2((pIdx_min+3.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                             'vec3 b = texture2D(primitive_info, vec2((pIdx_min+4.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                             'vec3 c = texture2D(primitive_info, vec2((pIdx_min+5.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                             'normal = normalize(cross(b - a, c - a));',
                         '}',
-                        'rd = rd - 2.*normal * dot(rd, normal);',
+                        'currentRay.direction -= 2.*normal * dot(currentRay.direction, normal);',
                     '} else if (pInfo_min.g == 2.) {',
                         // if glass, calculate refracted rd, ro, and keep bouncing
                         // store the refraction index
@@ -423,7 +382,7 @@ class Raytracer {
                             'ri_new = pInfo_min.b;',
                         '}',
 
-                        'ro = ro + min_t*rd;',
+                        'currentRay.origin += min_t*currentRay.direction;',
                         'refracted_pid = pid;',
                         'pid = -1;',
                         'except = -1;',
@@ -431,7 +390,7 @@ class Raytracer {
 
                         'if (pInfo_min.r > 0.5) {',
                             'vec3 c = texture2D(primitive_info, vec2((pIdx_min+3.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
-                            'normal = normalize(ro-c);',
+                            'normal = normalize(currentRay.origin -c);',
                         '} else if (pInfo_min.r < 0.5) {',
                             'vec3 a = texture2D(primitive_info, vec2((pIdx_min+3.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                             'vec3 b = texture2D(primitive_info, vec2((pIdx_min+4.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
@@ -439,10 +398,10 @@ class Raytracer {
                             'normal = normalize(cross(b - a, c - a));',
                         '}',
 
-                        'if (dot(normal, rd) >= 0.) { normal = -normal; }',
+                        'if (dot(normal, currentRay.direction) >= 0.) { normal = -normal; }',
 
-                        'rd = refract(rd, normal, refractionIndex/ri_new);',
-                        'ro = ro + rd * 0.001;',
+                        'currentRay.direction = refract(currentRay.direction, normal, refractionIndex/ri_new);',
+                        'currentRay.origin += currentRay.direction * 0.001;',
 
                         'refractionIndex = ri_new;',
 
@@ -457,17 +416,16 @@ class Raytracer {
 
                 'vec3 ro = cameraPosition;',
                 'vec3 dir = vPosition.xyz - ro;',
+                'Ray ray = Ray(cameraPosition, normalize(dir));',
                 'float t_entry = length(dir);',
-                'vec3 rd = normalize(dir);',
 
                 'if (t_entry < 0.) { gl_FragColor = vec4(0.,0.,0.,1.); return; }',
 
-
                 'vec3 color = vec3(0.,0.,0.);',
-                'intersect(ro, rd, color);',
+                'intersect(ray, color);',
                 'gl_FragColor = vec4(color, 1.0);',
-
-            '}'].join('\n');
+            '}',
+        ].join('\n');
 
         return fShader;
     }

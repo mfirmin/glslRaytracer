@@ -1,4 +1,4 @@
-
+/* eslint-disable indent */
 const intersectSphere = [
     'float intersectSphere(Sphere sphere, Ray ray) {',
         'float A, B, C;',
@@ -66,7 +66,7 @@ const intersectTriangle = [
 ].join('\n');
 
 const intersectBox = [
-    'float intersectBox(Box box, Ray ray) {'
+    'float intersectBox(Box box, Ray ray) {',
         'vec3 p0 = box.p0;',
         'vec3 p1 = box.p1;',
         'float t0 = 0.0;',
@@ -81,9 +81,9 @@ const intersectBox = [
         'tFar = max(tNear, tFar);',
         'tNear = temp;',
 
-        't0 = mix(tNear, t0, tNear > t0);',
-        't1 = mix(tFar, t1, tFar < t1);',
-        'if (t0 > t1) { return -1; }',
+        't0 = mix(tNear, t0, step(0.5, float(tNear > t0)));',
+        't1 = mix(tFar, t1, step(0.5, float(tFar < t1)));',
+        'if (t0 > t1) { return -1.0; }',
 
         // Intersect y slabs
         'invRayDir = 1.0 / ray.direction.y;',
@@ -94,9 +94,9 @@ const intersectBox = [
         'tFar = max(tNear, tFar);',
         'tNear = temp;',
 
-        't0 = mix(tNear, t0, tNear > t0);',
-        't1 = mix(tFar, t1, tFar < t1);',
-        'if (t0 > t1) { return -1; }',
+        't0 = mix(tNear, t0, step(0.5, float(tNear > t0)));',
+        't1 = mix(tFar, t1, step(0.5, float(tFar < t1)));',
+        'if (t0 > t1) { return -1.0; }',
 
         // Intersect z slabs
         'invRayDir = 1.0 / ray.direction.z;',
@@ -107,20 +107,21 @@ const intersectBox = [
         'tFar = max(tNear, tFar);',
         'tNear = temp;',
 
-        't0 = mix(tNear, t0, tNear > t0);',
-        't1 = mix(tFar, t1, tFar < t1);',
-        'if (t0 > t1) { return -1; }',
+        't0 = mix(tNear, t0, step(0.5, float(tNear > t0)));',
+        't1 = mix(tFar, t1, step(0.5, float(tFar < t1)));',
+        'if (t0 > t1) { return -1.0; }',
+        // Return t0 if it is positive (both points are in position ray dir)
+        // otherwise return t1 (ray is inside box -OR- both points are behind ray)
+        'return mix(t0, t1, step(0.5, float(t0 > 0.0)));',
     '}',
-    // Return t0 if it is positive (both points are in position ray dir)
-    // otherwise return t1 (ray is inside box -OR- both points are behind ray)
-    'return mix(t0, t1, t0 > 0.0)';
-];
+].join('\n');
 
 
 const intersectFunctions = {
-    box:      intersectBox,
-    sphere:   intersectSphere,
-    triangle: intersectTriangle,
-}
+    intersectBox,
+    intersectSphere,
+    intersectTriangle,
+};
 
 export default intersectFunctions;
+/* eslint-enable */
