@@ -42,7 +42,6 @@ class Primitive {
         }
         this._type = t;
     }
-
 }
 
 export default Primitive;
