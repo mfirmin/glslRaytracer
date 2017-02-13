@@ -1,9 +1,9 @@
 /* global THREE */
 
 class Primitive {
-    constructor(color = [0.8,0.8,0.8], type = 'NORMAL', diffuse, specular=[0.0, 0.0]) {
+    constructor(color = [0.8, 0.8, 0.8], type = 'NORMAL', diffuse, specular = [0.0, 0.0]) {
         this._color = color;
-        this._diffuse = (diffuse === undefined) ? color : diffuse ;
+        this._diffuse = (diffuse === undefined) ? color : diffuse;
         this._type = type;
         this._specular = specular;
     }

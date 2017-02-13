@@ -13,6 +13,7 @@ class Raytracer {
         this._ambientIntensity = ambientIntensity;
         this._sCount = 0;
         this._tCount = 0;
+        this._bCount = 0;
 
         this._initialized = false;
     }
@@ -22,6 +23,8 @@ class Raytracer {
             this._sCount++;
         } else if (p instanceof primitives.Triangle) {
             this._tCount++;
+        } else if (p instanceof primitives.Box) {
+            this._bCount++;
         } else {
             console.warn('Unknown primitive type'); // eslint-disable-line no-console
             return;
@@ -80,7 +83,7 @@ class Raytracer {
 
         const primitivePtrs = new Float32Array(numPrimitives * 1 * 4);
 
-        const pinfoPixels = this._sCount * 4 + this._tCount * 6;
+        const pinfoPixels = this._sCount * 4 + this._tCount * 6 + this._bCount * 5;
         if (pinfoPixels > 1024) {
             console.error('TOO MANY PRIMITIVES (pInfo > 1024 not supported yet...)'); // eslint-disable-line no-console
         }
@@ -99,6 +102,8 @@ class Raytracer {
                 type = 0;
             } else if (p instanceof primitives.Sphere) {
                 type = 1;
+            } else if (p instanceof primitives.Box) {
+                type = 2;
             } else {
                 console.warn('Unknown primitive. Should never reach here'); // eslint-disable-line no-console
                 continue;
@@ -106,7 +111,7 @@ class Raytracer {
 
             primitiveInfo[4 * pixCount + 0] = type;
             primitiveInfo[4 * pixCount + 1] = ['NORMAL', 'MIRROR', 'GLASS'].indexOf(p.type);
-            primitiveInfo[4 * pixCount + 2] = p.type === 'GLASS' ? 1.4 : 0; // Index of refraction (if glass type)
+            primitiveInfo[4 * pixCount + 2] = p.type === 'GLASS' ? 1.52: 0; // Index of refraction (if glass type)
             primitiveInfo[4 * pixCount + 3] = p.type === 'GLASS' ? 1 : 1; // multiplier on color of bounce
             ++pixCount;
             // Color
@@ -144,6 +149,20 @@ class Raytracer {
                 primitiveInfo[4 * pixCount + 1] = p.center[1];
                 primitiveInfo[4 * pixCount + 2] = p.center[2];
                 primitiveInfo[4 * pixCount + 3] = p.radius;
+                ++pixCount;
+            } else if (type === 2) {
+                // BOX CASE
+                const p0 = p.p0;
+                const p1 = p.p1;
+                primitiveInfo[4 * pixCount + 0] = p0[0];
+                primitiveInfo[4 * pixCount + 1] = p0[1];
+                primitiveInfo[4 * pixCount + 2] = p0[2];
+                primitiveInfo[4 * pixCount + 3] = 0;
+                ++pixCount;
+                primitiveInfo[4 * pixCount + 0] = p1[0];
+                primitiveInfo[4 * pixCount + 1] = p1[1];
+                primitiveInfo[4 * pixCount + 2] = p1[2];
+                primitiveInfo[4 * pixCount + 3] = 0;
                 ++pixCount;
             }
         }
@@ -212,7 +231,7 @@ class Raytracer {
             'uniform sampler2D primitive_ptrs;',
             'uniform sampler2D primitive_info;',
 
-            'const int MAX_BOUNCES = 4;',
+            'const int MAX_BOUNCES = 10;',
 
             `const int POINTERS_SIZE = ${ptrsSize};`,
             `const int PI_SIZE = ${piSize};`,
@@ -234,6 +253,18 @@ class Raytracer {
             glsl.intersectFunctions.intersectTriangle,
             glsl.intersectFunctions.intersectBox,
 
+            'vec3 getBoxNormalAtIntersect(Box b, vec3 p) {',
+                'vec3 p0p = (p - b.p0) / (b.p1 - b.p0);',
+                'vec3 normal = vec3(1.0, 0.0, 0.0);',
+                'normal = mix(normal, vec3(-1.0, 0.0, 0.0), step(0.5, float(p0p.x < 1e-5)));',
+                'normal = mix(normal, vec3(1.0, 0.0, 0.0), step(0.5, float(p0p.x > 1.0 - 1e-5)));',
+                'normal = mix(normal, vec3(0.0, -1.0, 0.0), step(0.5, float(p0p.y < 1e-5)));',
+                'normal = mix(normal, vec3(0.0, 1.0, 0.0), step(0.5, float(p0p.y > 1.0 - 1e-5)));',
+                'normal = mix(normal, vec3(0.0, 0.0, -1.0), step(0.5, float(p0p.z < 1e-5)));',
+                'normal = mix(normal, vec3(0.0, 0.0, 1.0), step(0.5, float(p0p.z > 1.0 - 1e-5)));',
+                'return normal;',
+            '}',
+
             'bool isInShadow(in vec3 p, in int pid) {',
                 'float pIdx;',
                 'vec4 pInfo;',
@@ -254,9 +285,13 @@ class Raytracer {
                         'vec3 c = texture2D(primitive_info, vec2((pIdx+5.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                         't = intersectTriangle(Triangle(a, b, c), Ray(ro, rdN));',
 
-                    '} else if (pInfo.r >= 0.5) {',
+                    '} else if (pInfo.r >= 0.5 && pInfo.r < 1.5) {',
                         'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5));',
                         't = intersectSphere(Sphere(c_and_r.xyz, c_and_r.a), Ray(ro, rdN));',
+                    '} else if (pInfo.r >= 1.5) {',
+                        'vec3 p0 = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                        'vec3 p1 = texture2D(primitive_info, vec2((pIdx+4.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                        't = intersectBox(Box(p0, p1), Ray(ro, rdN));',
                     '}',
                     'if (t > 0.+1e-3 && t < len_rd && !(pInfo.g == 2.)) {',
                         'return true;',
@@ -283,7 +318,7 @@ class Raytracer {
 
                 'for (int b = 0; b < MAX_BOUNCES; b++) {',
 
-
+//                    'if (b == MAX_BOUNCES - 1) { total_color = vec3(1., 0., 1.); return; }',
                     // 1. Calculate intersected primitive
                     'for (int i = 0; i < POINTERS_SIZE; i++) {',
                         'float t = -1.;',
@@ -296,10 +331,13 @@ class Raytracer {
                             'vec3 b = texture2D(primitive_info, vec2((pIdx+4.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                             'vec3 c = texture2D(primitive_info, vec2((pIdx+5.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                             't = intersectTriangle(Triangle(a, b, c), currentRay);',
-
-                        '} else if (pInfo.r >= 0.5) {',
+                        '} else if (pInfo.r >= 0.5 && pInfo.r < 1.5) {',
                             'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5));',
                             't = intersectSphere(Sphere(c_and_r.xyz, c_and_r.a), currentRay);',
+                        '} else if (pInfo.r >= 1.5) {',
+                            'vec3 p0 = texture2D(primitive_info, vec2((pIdx+3.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'vec3 p1 = texture2D(primitive_info, vec2((pIdx+4.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            't = intersectBox(Box(p0, p1), currentRay);',
                         '}',
                         'if (t > 0.+1e-3 && t < min_t && i != except) {',
                             'pid = i;',
@@ -321,9 +359,13 @@ class Raytracer {
                             'vec3 b = texture2D(primitive_info, vec2((pIdx_min+4.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                             'vec3 c = texture2D(primitive_info, vec2((pIdx_min+5.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                             'normal = cross(b - a, c - a);',
-                        '} else if (pInfo_min.r > 0.5) {',
+                        '} else if (pInfo_min.r >= 0.5 && pInfo_min.r < 1.5) {',
                             'vec4 c_and_r = texture2D(primitive_info, vec2((pIdx_min+3.5)*PIXEL_WIDTH_INFO, 0.5));',
                             'normal = p - c_and_r.xyz;',
+                        '} else if (pInfo_min.r >= 1.5) {',
+                            'vec3 p0 = texture2D(primitive_info, vec2((pIdx_min+3.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'vec3 p1 = texture2D(primitive_info, vec2((pIdx_min+4.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'normal = getBoxNormalAtIntersect(Box(p0, p1), p);',
                         '}',
 
                         'vec4 a_and_sk = texture2D(primitive_info, vec2((pIdx_min+1.5)*PIXEL_WIDTH_INFO, 0.5));',
@@ -351,27 +393,31 @@ class Raytracer {
                         '}',
                     '}',
 
-
-                    // 3. If mirror, calculate the new rd, ro, and keep bouncing.
-                    // otherwise return the current color
                     'if (pInfo_min.g == 1.) {',
+                        // 3. If *MIRROR*, calculate the new rd, ro, and keep bouncing.
+                        // otherwise return the current color
                         'currentRay.origin += min_t * currentRay.direction;',
                         'except = pid;',
                         'pid = -1;',
                         'min_t = 100000.;',
-                        // sphere case
-                        'if (pInfo_min.r > 0.5) {',
-                            'vec3 c = texture2D(primitive_info, vec2((pIdx_min+3.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
-                            'normal = normalize(currentRay.origin-c);',
-                        '} else if (pInfo_min.r < 0.5) {',
+                        'if (pInfo_min.r < 0.5) {',
                             'vec3 a = texture2D(primitive_info, vec2((pIdx_min+3.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                             'vec3 b = texture2D(primitive_info, vec2((pIdx_min+4.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                             'vec3 c = texture2D(primitive_info, vec2((pIdx_min+5.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                             'normal = normalize(cross(b - a, c - a));',
+                        '} else if (pInfo_min.r >= 0.5 && pInfo_min.r < 1.5) {',
+                            // sphere case
+                            'vec3 c = texture2D(primitive_info, vec2((pIdx_min+3.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'normal = normalize(currentRay.origin-c);',
+                        '} else if (pInfo_min.r >= 1.5) {',
+                            'vec3 p0 = texture2D(primitive_info, vec2((pIdx_min+3.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'vec3 p1 = texture2D(primitive_info, vec2((pIdx_min+4.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'normal = getBoxNormalAtIntersect(Box(p0, p1), p);',
                         '}',
                         'currentRay.direction -= 2.*normal * dot(currentRay.direction, normal);',
+                        'currentRay.direction = normalize(currentRay.direction);',
                     '} else if (pInfo_min.g == 2.) {',
-                        // if glass, calculate refracted rd, ro, and keep bouncing
+                        // if *GLASS*, calculate refracted rd, ro, and keep bouncing
                         // store the refraction index
 
                         'float ri_new;', // refraction index of next primitive (or air if exiting a primitive)
@@ -382,33 +428,46 @@ class Raytracer {
                             'ri_new = pInfo_min.b;',
                         '}',
 
-                        'currentRay.origin += min_t*currentRay.direction;',
-                        'refracted_pid = pid;',
-                        'pid = -1;',
-                        'except = -1;',
+                        // compute new origin
+                        'currentRay.origin = p;',
                         'min_t = 100000.;',
 
-                        'if (pInfo_min.r > 0.5) {',
-                            'vec3 c = texture2D(primitive_info, vec2((pIdx_min+3.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
-                            'normal = normalize(currentRay.origin -c);',
-                        '} else if (pInfo_min.r < 0.5) {',
-                            'vec3 a = texture2D(primitive_info, vec2((pIdx_min+3.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
-                            'vec3 b = texture2D(primitive_info, vec2((pIdx_min+4.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
-                            'vec3 c = texture2D(primitive_info, vec2((pIdx_min+5.+0.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                        'if (pInfo_min.r < 0.5) {',
+                            'vec3 a = texture2D(primitive_info, vec2((pIdx_min+3.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'vec3 b = texture2D(primitive_info, vec2((pIdx_min+4.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'vec3 c = texture2D(primitive_info, vec2((pIdx_min+5.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
                             'normal = normalize(cross(b - a, c - a));',
+                        '} else if (pInfo_min.r >= 0.5 && pInfo_min.r < 1.5) {',
+                            'vec3 c = texture2D(primitive_info, vec2((pIdx_min+3.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'normal = normalize(currentRay.origin -c);',
+                        '} else if (pInfo_min.r >= 1.5) {',
+                            'vec3 p0 = texture2D(primitive_info, vec2((pIdx_min+3.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'vec3 p1 = texture2D(primitive_info, vec2((pIdx_min+4.5)*PIXEL_WIDTH_INFO, 0.5)).xyz;',
+                            'normal = getBoxNormalAtIntersect(Box(p0, p1), p);',
                         '}',
 
                         'if (dot(normal, currentRay.direction) >= 0.) { normal = -normal; }',
 
-                        'currentRay.direction = refract(currentRay.direction, normal, refractionIndex/ri_new);',
-                        'currentRay.origin += currentRay.direction * 0.001;',
+                        'vec3 newDir = refract(currentRay.direction, normal, refractionIndex/ri_new);',
 
-                        'refractionIndex = ri_new;',
+                        // Actually reflection, not refraction
+                        'if (length(newDir) < 1e-5) {',
+                            'newDir = currentRay.direction - 2.*normal * dot(currentRay.direction, normal);',
+                        '} else {',
+                            'refracted_pid = pid;',
+                            'refractionIndex = ri_new;',
+                        '}',
 
+                        'pid = -1;',
+                        // we want to be able to intersect this primitive again
+                        'except = -1;',
+
+                        'currentRay.direction = normalize(newDir);',
+                        // offset origin a bit so we don't intersect this primitive immediately (note, e-3 is too fine)
+                        'currentRay.origin += 0.015*currentRay.direction;',
                     '} else {',
                         'return;',
                     '}',
-
                 '}',
             '}',
 

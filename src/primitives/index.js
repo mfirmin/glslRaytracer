@@ -1,12 +1,14 @@
 
-import { default as Primitive } from './primitive.js';
-import { default as Sphere } from './sphere.js';
-import { default as Triangle } from './triangle.js';
+import Primitive from './primitive.js';
+import Sphere from './sphere.js';
+import Triangle from './triangle.js';
+import Box from './box.js';
 
 const primitives = {
-    'Primitive': Primitive,
-    'Sphere': Sphere,
-    'Triangle': Triangle,
-}
+    Primitive,
+    Sphere,
+    Triangle,
+    Box,
+};
 
 export default primitives;

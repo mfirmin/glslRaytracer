@@ -81,8 +81,8 @@ const intersectBox = [
         'tFar = max(tNear, tFar);',
         'tNear = temp;',
 
-        't0 = mix(tNear, t0, step(0.5, float(tNear > t0)));',
-        't1 = mix(tFar, t1, step(0.5, float(tFar < t1)));',
+        't0 = mix(t0, tNear, step(0.5, float(tNear > t0)));',
+        't1 = mix(t1, tFar, step(0.5, float(tFar < t1)));',
         'if (t0 > t1) { return -1.0; }',
 
         // Intersect y slabs
@@ -94,8 +94,8 @@ const intersectBox = [
         'tFar = max(tNear, tFar);',
         'tNear = temp;',
 
-        't0 = mix(tNear, t0, step(0.5, float(tNear > t0)));',
-        't1 = mix(tFar, t1, step(0.5, float(tFar < t1)));',
+        't0 = mix(t0, tNear, step(0.5, float(tNear > t0)));',
+        't1 = mix(t1, tFar, step(0.5, float(tFar < t1)));',
         'if (t0 > t1) { return -1.0; }',
 
         // Intersect z slabs
@@ -107,12 +107,12 @@ const intersectBox = [
         'tFar = max(tNear, tFar);',
         'tNear = temp;',
 
-        't0 = mix(tNear, t0, step(0.5, float(tNear > t0)));',
-        't1 = mix(tFar, t1, step(0.5, float(tFar < t1)));',
+        't0 = mix(t0, tNear, step(0.5, float(tNear > t0)));',
+        't1 = mix(t1, tFar, step(0.5, float(tFar < t1)));',
         'if (t0 > t1) { return -1.0; }',
         // Return t0 if it is positive (both points are in position ray dir)
         // otherwise return t1 (ray is inside box -OR- both points are behind ray)
-        'return mix(t0, t1, step(0.5, float(t0 > 0.0)));',
+        'return mix(t1, t0, step(0.5, float(t0 > 0.0)));',
     '}',
 ].join('\n');
 
