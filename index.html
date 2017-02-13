@@ -19,10 +19,10 @@ title: Michael Firmin
             var lightPos = [0,3,0];
 
             var rt = new Raytracer.Raytracer(lightPos, 0.8, .2);
-            var s1 = new Raytracer.primitives.Sphere([-2,-4.5,-2], 0.5, [.6,.2,0], 'NORMAL', undefined, [1.0, 32.]);
-            var s2 = new Raytracer.primitives.Sphere([2,-4,2], 1, [.3,.3,.3], 'MIRROR', undefined, [.1, 8.]);
+            var s1 = new Raytracer.primitives.Sphere([-2,-4.0,-2], 1, [.6,.2,0], 'NORMAL', undefined, [1.0, 32.]);
+            var s2 = new Raytracer.primitives.Sphere([0, 0, 0], 2, [0, 0, 0], 'GLASS');
 
-            var s3 = new Raytracer.primitives.Sphere([+2,-4.75,-4], 0.25, [.6,.8,0], 'NORMAL', undefined, [1.0, 32.]);
+            var s3 = new Raytracer.primitives.Sphere([+2,-4.45,-4], 0.55, [.6,.8,0], 'NORMAL', undefined, [1.0, 32.]);
 
             var s4 = new Raytracer.primitives.Sphere([-3,-4.8,+3], 0.20, [.4,.3,.2], 'NORMAL', undefined, [0.0, 32.]);
             var s5 = new Raytracer.primitives.Sphere([-3.4,-4.8,+3], 0.20, [.4,.7,.8], 'NORMAL', undefined, [0.0, 32.]);
@@ -85,58 +85,22 @@ title: Michael Firmin
             rt.add(front1);
             rt.add(front2);
 
-            var c1 = [-1.5,-0,-1.0];
-            var c2 = [+1.0,-0,-1.0];
-            var c3 = [+1.0,-0,+1.5];
-            var c4 = [-1.5,-0,+1.5];
+            var c1 = [+0.5,-3.5,+1.0];
 
-            var c5 = [-1.5,-4.99,-1.0];
-            var c6 = [+1.0,-4.99,-1.0];
-            var c7 = [+1.0,-4.99,+1.5];
-            var c8 = [-1.5,-4.99,+1.5];
+            var c7 = [+3.0,-5,+3.5];
 
-//            var box_color = [0.7,0.3,0.6];
-            var box_color = [0,0,0];
+            var box_color = [0.7,0.3,0.6];
 
-            var cback1= new Raytracer.primitives.Triangle(c4, c7, c3, box_color, 'GLASS');
-            var cback2 = new Raytracer.primitives.Triangle(c4, c8, c7, box_color, 'GLASS');
+            var b1 = new Raytracer.primitives.Box(c1, c7, [0, 0, 0], 'MIRROR');
 
-            var cleft1 = new Raytracer.primitives.Triangle(c1, c8, c4, box_color, 'GLASS');
-            var cleft2 = new Raytracer.primitives.Triangle(c1, c5, c8, box_color, 'GLASS');
+            var sOnB = new Raytracer.primitives.Sphere([1.00, -3.25, 2.0], 0.25, [.3,.7,.5], 'NORMAL', undefined, [0.0, 32.]);
 
-            var cright1 = new Raytracer.primitives.Triangle(c3, c6, c2, box_color, 'GLASS');
-            var cright2 = new Raytracer.primitives.Triangle(c3, c7, c6, box_color, 'GLASS');
-
-            var ctop1 = new Raytracer.primitives.Triangle(c2, c4, c3, box_color, 'GLASS');
-            var ctop2 = new Raytracer.primitives.Triangle(c1, c4, c2, box_color, 'GLASS');
-
-            var cfront1 = new Raytracer.primitives.Triangle(c2, c5, c1, box_color, 'GLASS');
-            var cfront2 = new Raytracer.primitives.Triangle(c2, c6, c5, box_color, 'GLASS');
-
-            var cbottom1 = new Raytracer.primitives.Triangle(c6, c7, c8, box_color, 'GLASS');
-            var cbottom2 = new Raytracer.primitives.Triangle(c5, c6, c8, box_color, 'GLASS');
-
-
-            rt.add(cback1);
-            rt.add(cback2);
-            rt.add(cleft1);
-            rt.add(cleft2);
-            rt.add(cright1);
-            rt.add(cright2);
-
-            rt.add(ctop1);
-            rt.add(ctop2);
-
-            rt.add(cfront1);
-            rt.add(cfront2);
-
-            rt.add(cbottom1);
-            rt.add(cbottom2);
+            rt.add(b1);
+            rt.add(sOnB);
 
             rt.go();
 
             window.rt = rt;
-            window.s1 = s1;
 
 //            setInterval(function() {
 //                lightPos = [4*Math.sin(t),0,4*Math.cos(t)];

@@ -26,3 +26,6 @@ build: $(SOURCES)
 
 run: build
 	bundle exec jekyll serve
+
+watch: 
+	watchman-make -p 'src/**/*.js' -t build
