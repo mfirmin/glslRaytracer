@@ -1,2 +1,2 @@
-# glsl-function-grapher
-Raycasting based 3D function grapher using GLSL
+# GLSL Raytracer
+Interactive Raytracer built using THREE.js and GLSL Shaders
